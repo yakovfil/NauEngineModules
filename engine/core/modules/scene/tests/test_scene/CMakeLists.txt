@@ -14,7 +14,7 @@ target_include_directories(${TargetName} PRIVATE
 )
 
 target_link_libraries(${TargetName} PRIVATE
-  TestCommonLib
+  TestAppSupport
   CoreInput
 )
 

@@ -15,14 +15,21 @@ if(NAU_ENGINE_MODULES)
 endif()
 
 if(NAU_ENGINE_FRAMEWORK)
-  add_subdirectory(engine/core/app_framework)
+  # The framework sources live with the engine, but require the module targets above.
+  add_subdirectory("${NAU_ENGINE_SOURCE_DIR}/engine/core/app_framework"
+    "${CMAKE_CURRENT_BINARY_DIR}/app_framework")
   set_target_properties(${NAU_FRAMEWORK_TARGET} PROPERTIES FOLDER "${NauEngineFolder}/core")
-endif()
-
-if(NAU_CORE_TESTS)
-  add_subdirectory(engine/core/kernel/tests/test_common)
-  add_subdirectory(engine/core/kernel/tests/test_kernel)
-  add_subdirectory(engine/core/kernel/tests/test_runtime)
+  if(NAU_CORE_TESTS)
+    set(NAU_TEST_PROJECT_SOURCE_DIR
+      "${CMAKE_CURRENT_SOURCE_DIR}/engine/core/modules/asset_formats/test_assets")
+    add_subdirectory("${NAU_ENGINE_SOURCE_DIR}/engine/core/app_framework/tests/support"
+      "${CMAKE_CURRENT_BINARY_DIR}/test_support")
+  endif()
+  if(NAU_RUNTIME_PROFILE STREQUAL "minimal" AND NAU_MINIMAL_TESTS)
+    set(NAU_TEST_MODULES ${NAU_MINIMAL_MODULES})
+    add_subdirectory("${NAU_ENGINE_SOURCE_DIR}/engine/core/app_framework/tests/test_minimal_app"
+      "${CMAKE_CURRENT_BINARY_DIR}/test_minimal_app")
+  endif()
 endif()
 
 if(NOT NAU_RUNTIME_PROFILE MATCHES "^(minimal|scene)$")

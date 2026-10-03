@@ -37,27 +37,32 @@ add_library(PlatformAppApi INTERFACE)
 target_include_directories(PlatformAppApi INTERFACE "$<BUILD_INTERFACE:${modules}/engine/core/modules/platform_app/include>")
 target_compile_definitions(PlatformAppApi INTERFACE NAU_PLATFORMAPP_EXPORT=)
 nau_install(PlatformAppApi core)
-add_subdirectory("${modules}/engine/core/app_framework/src" framework)
+add_subdirectory("${engine}/engine/core/app_framework/src" framework)
+if(NOT EMSCRIPTEN)
+  # Exercise the engine-owned lifecycle tests without any concrete feature module.
+  set(NAU_TEST_MODULES "")
+  add_subdirectory("${engine}/engine/core/app_framework/tests/test_minimal_app" minimal_lifecycle)
+endif()
 add_executable(NauCorePortabilityTests "${engine}/engine/core/kernel/tests/test_wasm_core/test_core.cpp")
 nau_write_static_modules_initialization(moduleRegistration CoreTest)
 target_sources(NauCorePortabilityTests PRIVATE "${moduleRegistration}")
 target_compile_definitions(NauCorePortabilityTests PRIVATE NAU_MODULE_NAME=CoreTest)
-target_include_directories(NauCorePortabilityTests PRIVATE "${modules}/engine/core/app_framework/src")
+target_include_directories(NauCorePortabilityTests PRIVATE "${engine}/engine/core/app_framework/src")
 target_sources(NauCorePortabilityTests PRIVATE
-  "${modules}/engine/core/kernel/tests/test_runtime/test_cancellation_timeout.cpp"
+  "${engine}/engine/core/kernel/tests/test_runtime/test_cancellation_timeout.cpp"
   "${engine}/engine/core/kernel/tests/test_wasm_core/test_transform_portability.cpp"
-  "${modules}/engine/core/kernel/tests/test_runtime/test_serialization/test_math_serialization.cpp")
+  "${engine}/engine/core/kernel/tests/test_runtime/test_serialization/test_math_serialization.cpp")
 target_sources(NauCorePortabilityTests PRIVATE
   "${engine}/engine/core/kernel/tests/test_wasm_core/test_std_migration.cpp"
-  "${modules}/engine/core/kernel/tests/test_runtime/test_serialization/test_json.cpp"
-  "${modules}/engine/core/kernel/tests/test_runtime/test_serialization/test_json_mutability.cpp"
-  "${modules}/engine/core/kernel/tests/test_runtime/test_serialization/test_runtime_value.cpp"
-  "${modules}/engine/core/kernel/tests/test_runtime/test_serialization/test_runtime_value_events.cpp"
-  "${modules}/engine/core/kernel/tests/test_runtime/test_enum_reflection.cpp"
-  "${modules}/engine/core/kernel/tests/test_runtime/test_type_info.cpp"
-  "${modules}/engine/core/kernel/tests/test_runtime/test_uid.cpp")
+  "${engine}/engine/core/kernel/tests/test_runtime/test_serialization/test_json.cpp"
+  "${engine}/engine/core/kernel/tests/test_runtime/test_serialization/test_json_mutability.cpp"
+  "${engine}/engine/core/kernel/tests/test_runtime/test_serialization/test_runtime_value.cpp"
+  "${engine}/engine/core/kernel/tests/test_runtime/test_serialization/test_runtime_value_events.cpp"
+  "${engine}/engine/core/kernel/tests/test_runtime/test_enum_reflection.cpp"
+  "${engine}/engine/core/kernel/tests/test_runtime/test_type_info.cpp"
+  "${engine}/engine/core/kernel/tests/test_runtime/test_uid.cpp")
 target_precompile_headers(NauCorePortabilityTests PRIVATE
-  "${modules}/engine/core/kernel/tests/test_runtime/pch.h")
+  "${engine}/engine/core/kernel/tests/test_runtime/pch.h")
 target_link_libraries(NauCorePortabilityTests PRIVATE NauKernel NauFrameworkMinimal gtest_main gmock)
 nau_add_compile_options(NauCorePortabilityTests)
 if(EMSCRIPTEN)
@@ -75,8 +80,8 @@ set_tests_properties(CorePortability PROPERTIES TIMEOUT 60)
 
 # Exercise native kernel ownership and worker lifetimes without desktop module dependencies.
 if(NOT EMSCRIPTEN)
-  set(runtimeTests "${modules}/engine/core/kernel/tests/test_runtime")
-  set(commonTests "${modules}/engine/core/kernel/tests/test_common")
+  set(runtimeTests "${engine}/engine/core/kernel/tests/test_runtime")
+  set(commonTests "${engine}/engine/core/kernel/tests/test_common")
   add_executable(NauKernelMigrationTests
     "${runtimeTests}/helpers/runtime_guard.cpp"
     "${commonTests}/stopwatch.cpp"
@@ -91,8 +96,8 @@ if(NOT EMSCRIPTEN)
     "${runtimeTests}/test_async/test_task.cpp"
     "${runtimeTests}/test_async/test_task_collection.cpp"
     "${runtimeTests}/test_async/test_thread_local_value.cpp"
-    "${modules}/engine/core/kernel/tests/test_kernel/test_service.cpp"
-    "${modules}/engine/core/kernel/tests/test_kernel/test_io/test_fs_path.cpp")
+    "${engine}/engine/core/kernel/tests/test_kernel/test_service.cpp"
+    "${engine}/engine/core/kernel/tests/test_kernel/test_io/test_fs_path.cpp")
   target_include_directories(NauKernelMigrationTests PRIVATE "${runtimeTests}" "${commonTests}/include")
   target_precompile_headers(NauKernelMigrationTests PRIVATE "${runtimeTests}/pch.h")
   target_link_libraries(NauKernelMigrationTests PRIVATE NauKernel gtest_main gmock)

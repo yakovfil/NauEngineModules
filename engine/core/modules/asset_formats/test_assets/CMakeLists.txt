@@ -14,8 +14,7 @@ target_include_directories(${TargetName} PRIVATE
 )
 
 target_link_libraries(${TargetName} PRIVATE
-  TestCommonLib
-  NauFramework
+  TestAppSupport
 )
 
 nau_add_compile_options(${TargetName})
