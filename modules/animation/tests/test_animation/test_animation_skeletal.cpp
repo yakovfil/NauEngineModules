@@ -57,7 +57,7 @@ namespace nau::test
 
             const auto projectContentDir = EXPR_Block->fs::path
             {
-                const fs::path contentRelativePath{fs::path{NAU_MODULES_TEST_SOURCE_DIR} / "engine/core/modules/animation/tests/test_animation/content"};
+                const fs::path contentRelativePath{fs::path{NAU_MODULES_TEST_SOURCE_DIR} / "modules/animation/tests/test_animation/content"};
                 fs::path currentPath = fs::current_path();
 
                 do

@@ -32,7 +32,7 @@ add_test(NAME intrusive_list COMMAND test_intrusive_list)
 set_tests_properties(intrusive_list PROPERTIES TIMEOUT 30)
 
 add_executable(test_fixed_move_only_function test_fixed_move_only_function.cpp)
-target_include_directories(test_fixed_move_only_function PRIVATE "${NAU_MODULES_ROOT}/engine/core/modules/render/include")
+target_include_directories(test_fixed_move_only_function PRIVATE "${NAU_MODULES_ROOT}/modules/render/include")
 add_test(NAME fixed_move_only_function COMMAND test_fixed_move_only_function)
 add_test(NAME fixed_move_only_empty COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/verify_empty_function.py" $<TARGET_FILE:test_fixed_move_only_function>)
@@ -83,7 +83,7 @@ set_tests_properties(sorted_vector PROPERTIES TIMEOUT 30)
 add_executable(test_dag_vector test_dag_vector.cpp)
 target_include_directories(test_dag_vector PRIVATE
     "${NAU_ENGINE_ROOT}/engine/core/kernel/include"
-    "${NAU_MODULES_ROOT}/engine/core/modules/dagorECS/include"
+    "${NAU_MODULES_ROOT}/modules/dagorECS/include"
     "${NAU_ENGINE_ROOT}/engine/3rdparty_libs/fmt/include")
 target_compile_definitions(test_dag_vector PRIVATE NAU_STATIC_RUNTIME NAU_KERNEL_EXPORT= FMT_HEADER_ONLY)
 add_test(NAME dag_vector COMMAND test_dag_vector)

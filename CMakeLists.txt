@@ -11,7 +11,7 @@ if(NOT NAU_FRAMEWORK_TARGET)
 endif()
 
 if(NAU_ENGINE_MODULES)
-  add_subdirectory(engine/core/modules)
+  add_subdirectory(modules)
 endif()
 
 if(NAU_ENGINE_FRAMEWORK)
@@ -21,7 +21,7 @@ if(NAU_ENGINE_FRAMEWORK)
   set_target_properties(${NAU_FRAMEWORK_TARGET} PROPERTIES FOLDER "${NauEngineFolder}/core")
   if(NAU_CORE_TESTS)
     set(NAU_TEST_PROJECT_SOURCE_DIR
-      "${CMAKE_CURRENT_SOURCE_DIR}/engine/core/modules/asset_formats/test_assets")
+      "${CMAKE_CURRENT_SOURCE_DIR}/modules/asset_formats/test_assets")
     add_subdirectory("${NAU_ENGINE_SOURCE_DIR}/engine/core/app_framework/tests/support"
       "${CMAKE_CURRENT_BINARY_DIR}/test_support")
   endif()

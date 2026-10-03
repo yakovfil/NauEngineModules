@@ -474,7 +474,7 @@ namespace nau
 
         if (!modulesSourceDir.empty())
         {
-            const std::filesystem::path shadersIncludeDir = modulesSourceDir / "engine/core/modules/render/include/nau/shaders";
+            const std::filesystem::path shadersIncludeDir = modulesSourceDir / "modules/render/include/nau/shaders";
 
             if (std::filesystem::is_directory(shadersIncludeDir))
             {
