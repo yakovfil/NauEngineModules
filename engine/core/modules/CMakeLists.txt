@@ -1,0 +1,10 @@
+if(NAU_RUNTIME_PROFILE MATCHES "^(minimal|scene)$")
+  set(moduleDirs ${NAU_MINIMAL_MODULE_DIRS})
+else()
+  nau_collect_cmake_subdirectories(moduleDirs "${CMAKE_CURRENT_SOURCE_DIR}")
+endif()
+
+foreach(module IN LISTS moduleDirs)
+  message(STATUS "Engine module: (${module})")
+  add_subdirectory("${module}")
+endforeach()

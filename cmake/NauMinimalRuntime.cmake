@@ -1,0 +1,10 @@
+# Authoritative source graph for the non-rendering runtime.
+set(NAU_MINIMAL_MODULES "PlatformApp" CACHE STRING "Required minimal runtime modules")
+if(NOT NAU_MINIMAL_MODULES STREQUAL "PlatformApp")
+  message(FATAL_ERROR "Unsupported minimal modules '${NAU_MINIMAL_MODULES}'. Supported and required set: PlatformApp.")
+endif()
+set(NAU_MINIMAL_MODULE_DIRS platform_app)
+include("${NAU_ENGINE_SOURCE_DIR}/cmake/NauStandaloneMinimal.cmake")
+set(NAU_ENGINE_MODULES ON)
+set(NAU_ENGINE_FRAMEWORK ON)
+set(NAU_FRAMEWORK_TARGET NauFrameworkMinimal)
