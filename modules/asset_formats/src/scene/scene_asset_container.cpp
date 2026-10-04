@@ -9,10 +9,16 @@
 #include <string_view>
 #include <vector>
 
+#include "nau/async/task.h"
+#include "nau/diag/logging.h"
+#include "nau/io/memory_stream.h"
+#include "nau/io/nau_container.h"
+#include "nau/memory/bytes_buffer.h"
 #include "nau/memory/stack_allocator.h"
 #include "nau/memory/standard_aliases.h"
 #include "nau/rtti/rtti_impl.h"
 #include "nau/rtti/weak_ptr.h"
+#include "nau/serialization/json.h"
 #include "scene_serialization.h"
 
 namespace nau

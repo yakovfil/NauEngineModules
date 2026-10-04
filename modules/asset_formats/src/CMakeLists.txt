@@ -17,6 +17,7 @@ target_precompile_headers(${TargetName} PRIVATE pch.h)
 
 target_include_directories(${TargetName} PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
+  ${CMAKE_CURRENT_SOURCE_DIR}/../include
 )
 
 target_link_libraries(${TargetName} PRIVATE

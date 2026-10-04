@@ -9,6 +9,7 @@
 
 #include "nau/diag/logging.h"
 #include "nau/scene/components/internal/missing_component.h"
+#include "nau/scene/scene_object_constructor.h"
 #include "nau/service/service_provider.h"
 #include "scene_impl.h"
 #include "scene_management/scene_builder.h"
@@ -66,7 +67,18 @@ namespace nau::scene
             rootComponent = NauObject::classCreateInstance<SceneComponent>(nullptr);
         }
 
-        ObjectUniquePtr newObject = NauObject::classCreateInstance<SceneObject>(nullptr, std::move(rootComponent));
+        SceneComponent* const suppliedRoot = rootComponent.get();
+        ObjectUniquePtr<SceneObject> newObject;
+        if (auto* constructor = rootComponent->as<ISceneObjectConstructor*>())
+        {
+            newObject = constructor->constructSceneObject(std::move(rootComponent));
+        }
+        else
+        {
+            newObject = NauObject::classCreateInstance<SceneObject>(nullptr, std::move(rootComponent));
+        }
+        NAU_FATAL(newObject && &newObject->getRootComponent() == suppliedRoot,
+                  "Scene object constructor must retain the supplied root component");
         if (IComponentEvents* const componentEvents = newObject->getRootComponent().as<IComponentEvents*>())
         {
             componentEvents->onComponentCreated();

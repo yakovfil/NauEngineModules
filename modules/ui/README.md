@@ -1,69 +1,75 @@
-# NauWidget foundation
+# NauWidget scene foundation
 
-`NauUi` provides `nau::ui::NauWidget` through `nau/ui/nau_widget.h`. It derives from `nau::scene::NauObject`, supports engine RTTI, and links publicly to `CoreScene` and its portable assets/kernel dependencies. Creating and using a widget needs no window, GPU, application service, or scene-manager startup.
+`NauUi` provides `nau::ui::NauWidget` in `nau/ui/nau_widget.h`. It derives from `nau::scene::SceneObject` and uses the scene hierarchy, name, transform, components, identity and lifecycle. It adds visibility, rectangle size and pivot through its `NauWidgetRootComponent`. There is no layout, input, rendering or editor integration.
 
-Create widgets through `NauWidget::create(allocator)`; the allocator is optional and defaults to the engine allocator. Keep a supplied allocator alive until all widgets allocated through it have been destroyed. The factory returns `nau::scene::ObjectUniquePtr<NauWidget>`. Stack construction, `std::make_unique`, ordinary `delete`, and shared ownership are unsupported. A construction key restricts direct construction; test-only subclasses use the same allocator-aware object factory with their concrete type.
+## Creation and registration
 
-Parents exclusively own ordered children through engine object pointers. Each child keeps a weak parent reference. Widgets cannot be copied or moved as objects; moving owning handles preserves their addresses and inherited `getUid()`. Fresh widgets receive distinct non-null UIDs. Name, visibility, and hierarchy operations retain UID. Inherited `setUid()` is available, but explicit reassignment falls outside this identity guarantee.
+`NauWidget::create(allocator)` returns `ObjectUniquePtr<NauWidget>`, convertible to a scene-object owner. Its optional allocator owns both widget and root-component allocations and must outlive them. Moving owners preserves object addresses; copying/moving concrete objects and ordinary deletion are unsupported.
+
+Direct creation, local state access and release of an inactive owner need no application startup. Scene factory construction/loading, hierarchy operations which inspect activation, queries and explicit `destroy()` need initialized scene services. Normal CoreScene module initialization supplies them; headless consumers must initialize those services too. Async scene loading needs an executor which the caller pumps.
+
+Call `nau::ui::registerWidgetComponents()` before the scene factory first enumerates component types. Normal NauUi module initialization calls it. Static consumers must call the entry point or explicitly initialize the module; registration does not depend on a static initializer. Do not register after the factory has cached its component list. With registration, `factory.createSceneObject<NauWidgetRootComponent>()` returns an object with NauWidget RTTI and exactly one root component.
+
+## Hierarchy and transforms
+
+Parents own ordered children; children keep the normal non-owning scene parent link. Ordinary scene objects and widgets can share the same tree. Confine hierarchy and state access to one caller-controlled thread.
 
 ```cpp
-#include "nau/ui/nau_widget.h"
-
+// Scene services have already been initialized.
 auto parent = nau::ui::NauWidget::create();
 auto child = nau::ui::NauWidget::create();
-child->setDebugName("child");
-auto childRef = child.getRef();
-if (!parent->addChild(std::move(child)))
+child->setName("caption");
+child->setTranslation({20.f, 10.f, 3.f});
+if (!child->setSize({200.f, 100.f}) || !child->setPivot({0.5f, 0.5f}))
 {
     return 1;
 }
-parent->setVisible(false);
-child = parent->removeChild(*childRef);
-parent.reset(); // Detached child and its weak reference survive.
-child.reset();  // childRef is now invalid.
+auto& attached = parent->attachChild(std::move(child));
+auto worldMatrix = attached.getWorldTransform().toMatrixWithScale();
 ```
 
-Successful attachment consumes ownership; validation failure retains the caller's handle. An empty child, a child already parented, self-attachment, or attachment of an ancestor is rejected. Never manufacture a second owner from a borrowed pointer. Removing a direct child returns its intact subtree and clears its parent; removing a non-child returns empty ownership. Sibling order is preserved. `childAt()` returns null for an invalid index, and const access returns const borrowed pointers.
+`attachChild` preserves the child's local transform. Use `attachChildAsync` when awaiting activation is needed. `setParent(newParent)` preserves world placement; `SetParentOpts::DontKeepWorldTransform` preserves the local transform. `removeChild` destroys the child and returns no owner. To retain a subtree, reparent it; there is no detach-to-owner API.
 
-Release or reset the exclusive owner to destroy a widget. To destroy an attached subtree, remove it and release the returned owner. Root release destroys all attached descendants through their recorded concrete destructors and allocators. Parent references are cleared before child destruction. Engine weak references become invalid before their target's concrete destructor runs; they do not extend lifetime and remain valid across detachment and reattachment. Raw borrowed pointers must not be used after destruction.
+Inherited `destroy()` invalidates weak references using scene rules. An inactive object still held by an owner is physically deleted when the owner is released. Active destruction invalidates references immediately and lets outstanding component deactivation finish before deleting components. Destroying the special scene root directly is unsupported.
 
-`destroy()` is private and final on NauWidget. Calling it through normal virtual dispatch on `NauObject` terminates with `std::abort()` in every build, including Release. There is no self-removal or scene-manager destruction behavior. Explicit qualified calls to `NauObject::destroy()` bypass the override and are unsupported; the inherited assertion guard is disabled in Release.
+Use `getTransform/setTransform`, component translation/rotation/scale setters, and `getWorldTransform`. These retain the existing scene `math::Transform` composition and validation behavior, including its handling of rotation with nonuniform scale, singular scales and floating-point limits. They do not promise an exact accumulated affine matrix preserving shear.
 
-Widgets default to locally visible and unnamed. `isEffectivelyVisible()` checks the widget and its ancestors immediately; hiding a parent does not rewrite child visibility. Detached locally visible widgets are effectively visible. Confine tree/state and weak-reference access to one caller-controlled thread; weak references provide no synchronization.
+## Rectangle and visibility
 
-This foundation has no production derived widgets, layout, input, drawing, ticking, persistence, scene attachment, or editor integration. Widget weak references are in-memory references: the existing SceneQuery serializer/resolver does not support widgets. Save/load and scene attachment will be separate changes.
-
-Full module builds discover NauUi; standalone kernel and existing minimal/scene defaults do not select it. The `tests/consumer` fixture explicitly selects UI with a focused portable scene/assets graph independent of NauDemo. Set `NAU_WIDGET_ENGINE` to the standalone engine source for native/Emscripten source builds, or `NAU_WIDGET_SDK` to a relocated installed SDK. Enable `NAU_WIDGET_TESTS=ON` for native headless ownership/state tests; run CTest in Debug and Release. No application startup is needed.
-
-## Spatial state
-
-Each widget stores an engine `math::Transform` relative to its parent's pivot. `localTransform()` returns a const reference; edit a copy and submit it with `setLocalTransform()`. The initial transform is identity. Scale, then quaternion rotation, then translation maps local points into parent coordinates. Translation places this widget's pivot at that position.
-
-`size()` is unscaled width/height, initially `(0, 0)`. `pivot()` is a dimensionless rectangle coordinate, initially `(0.5, 0.5)`. The widget rectangle lies in its local XY plane at Z=0:
+`size()` defaults to `(0,0)`, accepts finite nonnegative dimensions and returns `Result<>` from `setSize`. `pivot()` defaults to `(0.5,0.5)` and accepts finite coordinates, including values outside `[0,1]`. Failed setters preserve prior state. The local XY rectangle at Z=0 is:
 
 ```text
-minimum = (-pivot.x * width, -pivot.y * height, 0)
-maximum = ((1 - pivot.x) * width, (1 - pivot.y) * height, 0)
+minimum = (-pivot.x * size.x, -pivot.y * size.y, 0)
+maximum = ((1 - pivot.x) * size.x, (1 - pivot.y) * size.y, 0)
 ```
 
-For size `(200, 100)` and centered pivot, the rectangle spans `(-100, -50, 0)` to `(100, 50, 0)`. Pivot `(0, 0)` denotes its minimum-coordinate corner; `(1, 1)` denotes its maximum-coordinate corner. An external pivot `(2, -1)` gives minimum `(-400, 100, 0)` and maximum `(-200, 200, 0)` for that size. Coordinates use engine axes and caller-defined units; screen orientation and pixel conversion belong to future presentation.
+The parent's pivot is the child coordinate origin. Size/pivot edits change geometry around that origin without changing transforms or descendant origins. An ordinary scene ancestor contributes its normal scene origin.
 
-The parent's pivot is the child coordinate origin. Changing size or pivot reshapes/repositions the rectangle around its fixed origin, leaving the widget transform and descendant origins unchanged. Changing scale transforms the widget geometry and descendants together. Attachment and detachment retain local transform, size, and pivot; accumulated placement follows the new ancestry.
+Local visibility defaults to true. `isEffectivelyVisible()` visits every scene ancestor and combines visibility of widget ancestors, including across ordinary objects. Ordinary objects have no UI visibility flag. Visibility does not change scene activation.
 
-`accumulatedMatrix()` returns the ordered product of ancestor local matrices and this widget's local matrix, immediately reflecting edits. It maps pivot-relative points into the coordinate space outside the top-level widget. Parentless widgets return their own local matrix. Composition preserves shear produced by nonuniform scaling and rotation. Queries walk ancestors in O(depth) time and O(1) temporary storage.
+## Scene and prefab persistence
 
-```cpp
-auto widget = nau::ui::NauWidget::create();
-auto transform = widget->localTransform();
-transform.setTranslation({20.f, 10.f, 3.f});
-if (!widget->setLocalTransform(transform) || !widget->setSize({200.f, 100.f}) ||
-    !widget->setPivot({0.5f, 0.5f}))
-{
-    return 1;
-}
-auto matrix = widget->accumulatedMatrix();
-```
+The root-component type identifies NauWidget during construction; there is no new scene container format or widget UID index. Scenes support widgets beneath the ordinary scene root; prefab roots can be widgets. Existing scene save/load, `clone()`, object-category queries and serialized component weak references work with widgets. Ordinary load preserves saved UIDs; prefab instantiation, cloning and `RecreateUid` generate new object/component UIDs and remap references. Old live weak handles never retarget loaded objects.
 
-Spatial setters return `Result<>`: invalid input reports failure and preserves existing state in every build. Transform components must be finite and rotation must pass the engine's normalized-quaternion check (squared-length tolerance `1e-3`). Size must be finite and nonnegative; zero is valid. Pivot must be finite, including values outside `[0, 1]`. Finite zero/negative scale is supported. Values are stored without clamping or automatic normalization. Ordinary floating-point range limits apply to derived arithmetic. Rebuild consumers when updating the library: spatial storage changes the widget object size.
+The root component serializes `widgetState` with `visible`, `size` and `pivot`. Assign the group through `setValue("widgetState", value)` to validate a complete candidate before committing it; snapshots from `getValue` cannot mutate live state. Missing state/fields use defaults when restoring a fresh widget. Wrong types, explicit null state, non-finite geometry and negative size fail without clamping.
 
-Migration: replace `Widget`/`nau/ui/widget.h` with `NauWidget`/`nau/ui/nau_widget.h`, direct construction with `create()`, standard unique pointers with engine owners, and `id()` with `getUid()`. No legacy type or header alias is retained.
+CoreScene's optional `IComponentPropertyValidator` examines the original property record before runtime assignment, including explicit null values. Failure skips property assignment, logs a restoration diagnostic and continues normal UID/transform restoration. Thus a newly loaded widget retains default widget state on failure. Generic `RuntimeValue::assign` retains its existing null-skipping semantics; callers restoring whole component records outside the scene loader should invoke validation first.
+
+Without UI registration the scene factory restores an ordinary object with a missing root component. Its unknown type and properties survive re-save; loading that data with UI registered recovers NauWidget. The placeholder is not an operational widget.
+
+The focused `NauSceneSerialization` library exposes the existing portable scene container reader/writer through `nau/assets/scene_serialization.h`, without importing platform, mesh or image tools. See the public consumer's `main.cpp` for an executable scene-stream round trip.
+
+## API migration and validation
+
+| Previous widget API | Scene API |
+| --- | --- |
+| `debugName/setDebugName` | `getName/setName` |
+| `parent` | `getParentObject` (may be an ordinary object) |
+| `childCount/childAt` | `getDirectChildObjects` |
+| `addChild` | `attachChild/attachChildAsync` |
+| owning `removeChild` result | destroying `removeChild`; use `setParent` to retain a subtree |
+| `localTransform/setLocalTransform` | `getTransform/setTransform` |
+| `accumulatedMatrix` | `getWorldTransform().toMatrixWithScale()` with scene transform semantics |
+| owner-only destruction | normal scene `destroy()` and owner release |
+
+Rebuild consumers for the class-layout and API change. Full module builds select NauUi; standalone kernel and ordinary minimal/scene defaults remain UI independent. The `tests/consumer` fixture explicitly selects UI with a portable graph independent of NauDemo. Configure `NAU_WIDGET_ENGINE` for a source build or `NAU_WIDGET_SDK` for a relocated SDK; enable `NAU_WIDGET_TESTS=ON` for native regression tests. Run CTest in Debug/Release or the Emscripten consumer under Node.

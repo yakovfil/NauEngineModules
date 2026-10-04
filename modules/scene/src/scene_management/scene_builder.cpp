@@ -10,6 +10,7 @@
 
 #include "nau/memory/scoped_standard_allocator.h"
 #include "nau/memory/standard_aliases.h"
+#include "nau/scene/components/component_property_validator.h"
 #include "nau/scene/components/internal/missing_component.h"
 #include "nau/scene/scene_manager.h"
 #include "nau/serialization/json.h"
@@ -265,7 +266,6 @@ namespace nau::scene
             object->getRootComponent().as<IMissingComponent&>().setComponentData(objectAsset.rootComponent);
         }
 
-
         object->setUid(objectAsset.uid);
         object->setName(objectAsset.name);
 
@@ -286,7 +286,15 @@ namespace nau::scene
             std::cout << buffer.c_str() << std::endl;
 #endif
             RuntimeValue::Ptr propsTarget = rtti::staticCast<RuntimeValue*>(&component);
-            auto result = RuntimeValue::assign(propsTarget, componentAsset.properties);
+            Result<> result;
+            if (auto* validator = component.as<IComponentPropertyValidator*>())
+            {
+                result = validator->validateComponentProperties(componentAsset.properties);
+            }
+            if (result)
+            {
+                result = RuntimeValue::assign(propsTarget, componentAsset.properties);
+            }
             if (!result)
             {
                 NAU_LOG_ERROR("Fail to restore component ():({})", result.getError()->getMessage());
