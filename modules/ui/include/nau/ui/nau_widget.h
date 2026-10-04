@@ -7,6 +7,7 @@
 #include <string_view>
 #include <vector>
 
+#include "nau/math/transform.h"
 #include "nau/scene/nau_object.h"
 
 namespace nau::ui
@@ -41,6 +42,22 @@ namespace nau::ui
         void setVisible(bool visible) noexcept;
         bool isEffectivelyVisible() const noexcept;
 
+        // Identity by default. Translation places this pivot relative to the parent's pivot.
+        // Applies scale, rotation, then translation; callers edit a copy and submit it.
+        const math::Transform& localTransform() const noexcept;
+        Result<> setLocalTransform(const math::Transform& transform);
+        // Unscaled XY rectangle extent (default zero); finite, nonnegative components.
+        math::Vector2 size() const noexcept;
+        Result<> setSize(math::Vector2 size);
+        // Dimensionless rectangle pivot (default center). Finite external pivots are allowed.
+        // Rectangle minimum = -pivot * size; maximum = (1 - pivot) * size; local Z = 0.
+        // Size/pivot edits leave this transform and descendant origins unchanged.
+        math::Vector2 pivot() const noexcept;
+        Result<> setPivot(math::Vector2 pivot);
+        // Maps pivot-relative points into coordinates outside the top-level widget.
+        // Queries ancestry immediately in O(depth), preserving shear; no scene/screen units.
+        math::Matrix4 accumulatedMatrix() const;
+
         NauWidget* parent() noexcept;
         const NauWidget* parent() const noexcept;
         size_t childCount() const noexcept;
@@ -59,6 +76,9 @@ namespace nau::ui
         void destroy() final;
         std::string m_debugName;
         bool m_visible = true;
+        math::Transform m_localTransform;
+        math::Vector2 m_size = {0.f, 0.f};
+        math::Vector2 m_pivot = {0.5f, 0.5f};
         scene::ObjectWeakRef<NauWidget> m_parent;
         std::vector<scene::ObjectUniquePtr<NauWidget>> m_children;
     };

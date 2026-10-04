@@ -35,4 +35,35 @@ This foundation has no production derived widgets, layout, input, drawing, ticki
 
 Full module builds discover NauUi; standalone kernel and existing minimal/scene defaults do not select it. The `tests/consumer` fixture explicitly selects UI with a focused portable scene/assets graph independent of NauDemo. Set `NAU_WIDGET_ENGINE` to the standalone engine source for native/Emscripten source builds, or `NAU_WIDGET_SDK` to a relocated installed SDK. Enable `NAU_WIDGET_TESTS=ON` for native headless ownership/state tests; run CTest in Debug and Release. No application startup is needed.
 
+## Spatial state
+
+Each widget stores an engine `math::Transform` relative to its parent's pivot. `localTransform()` returns a const reference; edit a copy and submit it with `setLocalTransform()`. The initial transform is identity. Scale, then quaternion rotation, then translation maps local points into parent coordinates. Translation places this widget's pivot at that position.
+
+`size()` is unscaled width/height, initially `(0, 0)`. `pivot()` is a dimensionless rectangle coordinate, initially `(0.5, 0.5)`. The widget rectangle lies in its local XY plane at Z=0:
+
+```text
+minimum = (-pivot.x * width, -pivot.y * height, 0)
+maximum = ((1 - pivot.x) * width, (1 - pivot.y) * height, 0)
+```
+
+For size `(200, 100)` and centered pivot, the rectangle spans `(-100, -50, 0)` to `(100, 50, 0)`. Pivot `(0, 0)` denotes its minimum-coordinate corner; `(1, 1)` denotes its maximum-coordinate corner. An external pivot `(2, -1)` gives minimum `(-400, 100, 0)` and maximum `(-200, 200, 0)` for that size. Coordinates use engine axes and caller-defined units; screen orientation and pixel conversion belong to future presentation.
+
+The parent's pivot is the child coordinate origin. Changing size or pivot reshapes/repositions the rectangle around its fixed origin, leaving the widget transform and descendant origins unchanged. Changing scale transforms the widget geometry and descendants together. Attachment and detachment retain local transform, size, and pivot; accumulated placement follows the new ancestry.
+
+`accumulatedMatrix()` returns the ordered product of ancestor local matrices and this widget's local matrix, immediately reflecting edits. It maps pivot-relative points into the coordinate space outside the top-level widget. Parentless widgets return their own local matrix. Composition preserves shear produced by nonuniform scaling and rotation. Queries walk ancestors in O(depth) time and O(1) temporary storage.
+
+```cpp
+auto widget = nau::ui::NauWidget::create();
+auto transform = widget->localTransform();
+transform.setTranslation({20.f, 10.f, 3.f});
+if (!widget->setLocalTransform(transform) || !widget->setSize({200.f, 100.f}) ||
+    !widget->setPivot({0.5f, 0.5f}))
+{
+    return 1;
+}
+auto matrix = widget->accumulatedMatrix();
+```
+
+Spatial setters return `Result<>`: invalid input reports failure and preserves existing state in every build. Transform components must be finite and rotation must pass the engine's normalized-quaternion check (squared-length tolerance `1e-3`). Size must be finite and nonnegative; zero is valid. Pivot must be finite, including values outside `[0, 1]`. Finite zero/negative scale is supported. Values are stored without clamping or automatic normalization. Ordinary floating-point range limits apply to derived arithmetic. Rebuild consumers when updating the library: spatial storage changes the widget object size.
+
 Migration: replace `Widget`/`nau/ui/widget.h` with `NauWidget`/`nau/ui/nau_widget.h`, direct construction with `create()`, standard unique pointers with engine owners, and `id()` with `getUid()`. No legacy type or header alias is retained.

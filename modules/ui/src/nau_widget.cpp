@@ -3,6 +3,7 @@
 #include "nau/ui/nau_widget.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 
 namespace nau::ui
@@ -52,6 +53,62 @@ namespace nau::ui
     void NauWidget::setVisible(bool visible) noexcept
     {
         m_visible = visible;
+    }
+
+    const math::Transform& NauWidget::localTransform() const noexcept
+    {
+        return m_localTransform;
+    }
+
+    Result<> NauWidget::setLocalTransform(const math::Transform& transform)
+    {
+        if (!transform.isValid())
+        {
+            return NauMakeError("Widget transform must be finite with a normalized rotation");
+        }
+        m_localTransform = transform;
+        return {};
+    }
+
+    math::Vector2 NauWidget::size() const noexcept
+    {
+        return m_size;
+    }
+
+    Result<> NauWidget::setSize(math::Vector2 size)
+    {
+        if (!std::isfinite(float(size.getX())) || !std::isfinite(float(size.getY())) ||
+            float(size.getX()) < 0.f || float(size.getY()) < 0.f)
+        {
+            return NauMakeError("Widget size must be finite and nonnegative");
+        }
+        m_size = size;
+        return {};
+    }
+
+    math::Vector2 NauWidget::pivot() const noexcept
+    {
+        return m_pivot;
+    }
+
+    Result<> NauWidget::setPivot(math::Vector2 pivot)
+    {
+        if (!std::isfinite(float(pivot.getX())) || !std::isfinite(float(pivot.getY())))
+        {
+            return NauMakeError("Widget pivot must be finite");
+        }
+        m_pivot = pivot;
+        return {};
+    }
+
+    math::Matrix4 NauWidget::accumulatedMatrix() const
+    {
+        auto matrix = m_localTransform.toMatrixWithScale();
+        for (auto ancestor = parent(); ancestor; ancestor = ancestor->parent())
+        {
+            matrix = ancestor->m_localTransform.toMatrixWithScale() * matrix;
+        }
+        return matrix;
     }
     NauWidget* NauWidget::parent() noexcept
     {
