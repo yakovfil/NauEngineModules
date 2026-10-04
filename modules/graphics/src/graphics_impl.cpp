@@ -415,6 +415,10 @@ namespace nau
         }
        
         m_worldToGraphicScene.clear();
+        for (auto& [key, window] : m_renderWindows)
+            window->releaseTextResources();
+        if (m_defaultRenderWindow)
+            m_defaultRenderWindow->releaseTextResources();
         m_renderWindows.clear();
         m_defaultRenderWindow.reset();
 

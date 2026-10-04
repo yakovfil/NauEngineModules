@@ -11,6 +11,7 @@
 #include "nau/gui/imguiInput.h"
 #include "nau/ui.h"
 #include "render_window_impl.h"
+#include "nau/text/screen_text.h"
 
 namespace nau::render
 {
@@ -264,6 +265,16 @@ namespace nau::render
                 {
                     BaseTexture* backBuf = d3d::get_back_buffer_rt(m_swapchain);
                     nau::getServiceProvider().get<nau::ui::UiManager>().render(backBuf);
+                }
+                if (m_swapchain == DEFAULT_SWAPID && getServiceProvider().has<text::ScreenText>())
+                {
+                    setRenderTarget();
+                    d3d::set_srgb_backbuffer_write(false);
+                    if (!m_textOverlay)
+                        m_textOverlay = std::make_unique<TextOverlay>();
+                    auto result = m_textOverlay->render(m_width, m_height);
+                    if (!result)
+                        getServiceProvider().get<text::ScreenText>().completePresentation(result.getError());
                 }
             };
         }));

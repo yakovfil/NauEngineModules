@@ -18,6 +18,7 @@
 #include "nau/render/environmentRenderer.h"
 #include "nau/render/render_window.h"
 #include "render/daBfg/bfg.h"
+#include "text_overlay.h"
 
 namespace nau
 {
@@ -31,6 +32,10 @@ namespace nau::render
         NAU_CLASS(nau::render::RenderWindowImpl, rtti::RCPolicy::Concurrent, IRenderWindow);
 
     public:
+        void releaseTextResources()
+        {
+            m_textOverlay.reset();
+        }
         void setWorld(nau::Uid world) override;
         nau::Uid getWorld() override;
 
@@ -126,6 +131,7 @@ namespace nau::render
         std::shared_ptr<GraphicsScene> m_graphicsScene = nullptr;
 
         std::unique_ptr<render::PostFxRenderer> m_postFXRenderer;
+        std::unique_ptr<TextOverlay> m_textOverlay;
         std::unique_ptr<render::EnvironmentRenderer> m_environmentRenderer;
 
         void* m_windowHandle;

@@ -9,8 +9,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <map>
 
 #include "nau/scene/scene_object.h"
+#include "nau/service/service_provider.h"
+#include "nau/text/screen_text.h"
 
 namespace nau
 {
@@ -23,6 +26,15 @@ namespace nau
         unsigned frames = 0;
         bool stopped = false;
         Error::Ptr failure;
+        GLuint textProgram = 0, textVao = 0, textBuffer = 0;
+        float textScale = 1;
+        struct TextTexture
+        {
+            std::weak_ptr<const text::TextLine> line;
+            text::BitmapHandle image;
+            GLuint texture = 0;
+        };
+        std::map<std::pair<const text::TextLine*, float>, TextTexture> textTextures;
     };
 
     BrowserRenderer::BrowserRenderer() :
@@ -97,6 +109,46 @@ namespace nau
             glGetProgramInfoLog(state.program, sizeof(message), nullptr, message);
             return NauMakeError("Browser shader link failed: {}", message);
         }
+        constexpr std::string_view textVertex = R"(#version 300 es
+layout(location=0) in vec2 position;
+layout(location=1) in vec2 uv;
+out vec2 texcoord;
+void main() { texcoord=uv; gl_Position=vec4(position,0.0,1.0); }
+)";
+        constexpr std::string_view textFragment = R"(#version 300 es
+precision highp float;
+in vec2 texcoord;
+uniform sampler2D coverage;
+uniform vec4 tint;
+out vec4 color;
+void main() { color=vec4(tint.rgb,tint.a*texture(coverage,texcoord).r); }
+)";
+        auto textVs = compile(GL_VERTEX_SHADER, textVertex);
+        if (!textVs)
+            return textVs.getError();
+        auto textFs = compile(GL_FRAGMENT_SHADER, textFragment);
+        if (!textFs)
+        {
+            glDeleteShader(*textVs);
+            return textFs.getError();
+        }
+        state.textProgram = glCreateProgram();
+        glAttachShader(state.textProgram, *textVs);
+        glAttachShader(state.textProgram, *textFs);
+        glLinkProgram(state.textProgram);
+        glDeleteShader(*textVs);
+        glDeleteShader(*textFs);
+        glGetProgramiv(state.textProgram, GL_LINK_STATUS, &okay);
+        if (!okay)
+            return NauMakeError("Browser screen-text shader link failed");
+        glGenVertexArrays(1, &state.textVao);
+        glBindVertexArray(state.textVao);
+        glGenBuffers(1, &state.textBuffer);
+        glBindBuffer(GL_ARRAY_BUFFER, state.textBuffer);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), nullptr);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), reinterpret_cast<void*>(2 * sizeof(float)));
         for (const char* name : {"model", "view", "projection"})
             if (glGetUniformLocation(state.program, name) < 0)
                 return NauMakeError("Browser shader missing required uniform {}", name);
@@ -154,6 +206,7 @@ namespace nau
             return state.failure = NauMakeError("Invalid canvas pixel ratio");
         const double width = std::round(size[0] * size[2]), height = std::round(size[1] * size[2]);
         const double scale = std::min(1.0, state.limit / std::max({1.0, width, height}));
+        state.textScale = float(size[2] * scale);
         const int w = width > 0 ? std::max(1, int(width * scale)) : 0;
         const int h = height > 0 ? std::max(1, int(height * scale)) : 0;
         if (w != state.width || h != state.height)
@@ -207,6 +260,104 @@ namespace nau
         glUniformMatrix4fv(glGetUniformLocation(state.program, "projection"), 1, GL_FALSE, projection);
         glBindVertexArray(state.vao);
         glDrawElements(GL_TRIANGLES, state.count, GL_UNSIGNED_SHORT, nullptr);
+        if (getServiceProvider().has<text::ScreenText>())
+        {
+            auto& service = getServiceProvider().get<text::ScreenText>();
+            auto frame = service.snapshot();
+            std::erase_if(state.textTextures, [&](const auto& item)
+            {
+                const bool active = item.first.second == state.textScale &&
+                                    std::any_of(frame->begin(), frame->end(), [&](const auto& command)
+                {
+                    return command.text.get() == item.first.first;
+                });
+                if (!active || item.second.line.expired())
+                {
+                    glDeleteTextures(1, &item.second.texture);
+                    return true;
+                }
+                return false;
+            });
+            glDisable(GL_DEPTH_TEST);
+            glDepthMask(GL_FALSE);
+            glEnable(GL_BLEND);
+            glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+            glUseProgram(state.textProgram);
+            glUniform1i(glGetUniformLocation(state.textProgram, "coverage"), 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindVertexArray(state.textVao);
+            glBindBuffer(GL_ARRAY_BUFFER, state.textBuffer);
+            unsigned labels = 0;
+            for (const auto& command : *frame)
+            {
+                const auto key = std::make_pair(command.text.get(), state.textScale);
+                auto& texture = state.textTextures[key];
+                if (!texture.image)
+                {
+                    auto image = service.rasterize(command.text, state.textScale);
+                    if (!image)
+                    {
+                        service.completePresentation(image.getError());
+                        return state.failure = image.getError();
+                    }
+                    texture.line = command.text;
+                    texture.image = *image;
+                    if (!texture.image->coverage.empty())
+                    {
+                        glGenTextures(1, &texture.texture);
+                        glBindTexture(GL_TEXTURE_2D, texture.texture);
+                        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+                        glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, texture.image->width, texture.image->height,
+                                     0, GL_RED, GL_UNSIGNED_BYTE, texture.image->coverage.data());
+                        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+                    }
+                }
+                const auto& image = *texture.image;
+                if (image.coverage.empty())
+                    continue;
+                const float x = command.position[0] * state.textScale + image.left;
+                const float y = command.position[1] * state.textScale + image.top;
+                const float left = 2 * x / state.width - 1, right = 2 * (x + image.width) / state.width - 1;
+                const float top = 1 - 2 * y / state.height, bottom = 1 - 2 * (y + image.height) / state.height;
+                const float quad[] = {left, top, 0, 0, right, top, 1, 0, left, bottom, 0, 1,
+                                      left, bottom, 0, 1, right, top, 1, 0, right, bottom, 1, 1};
+                glBindTexture(GL_TEXTURE_2D, texture.texture);
+                glUniform4fv(glGetUniformLocation(state.textProgram, "tint"), 1, command.color.data());
+                glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STREAM_DRAW);
+                glDrawArrays(GL_TRIANGLES, 0, 6);
+                ++labels;
+            }
+            glBindTexture(GL_TEXTURE_2D, 0);
+            glBindVertexArray(0);
+            glDisable(GL_BLEND);
+            glDepthMask(GL_TRUE);
+            glEnable(GL_DEPTH_TEST);
+            if (glGetError() != GL_NO_ERROR)
+            {
+                auto error = NauMakeError("Browser text upload or draw failed");
+                service.completePresentation(error);
+                return state.failure = error;
+            }
+            if (!frame->empty())
+                service.completePresentation({});
+            MAIN_THREAD_EM_ASM({ Module.nauText = ({labels: $0, scale: $1, textures: $2}); }, labels, state.textScale, state.textTextures.size());
+#if NAU_TEXT_CAPTURE_TESTS
+            if (MAIN_THREAD_EM_ASM_INT({ return Module.nauTextCaptureRequest ? 1 : 0; }))
+            {
+                std::vector<unsigned char> pixels(size_t(state.width) * state.height * 4);
+                glReadPixels(0, 0, state.width, state.height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+                MAIN_THREAD_EM_ASM({
+                    Module.nauTextCaptureRequest = false;
+                    Module.nauTextSurface = ({width: $2, height: $3, pixels: Array.from(HEAPU8.subarray($0, $0 + $1))});
+                },
+                                   pixels.data(), pixels.size(), state.width, state.height);
+            }
+#endif
+        }
         if (glGetError() != GL_NO_ERROR || emscripten_webgl_commit_frame() != EMSCRIPTEN_RESULT_SUCCESS)
             return state.failure = NauMakeError("Browser draw submission failed");
         ++state.frames;
@@ -231,6 +382,12 @@ namespace nau
                 glDeleteVertexArrays(1, &state.vao);
                 if (state.program)
                     glDeleteProgram(state.program);
+                for (const auto& item : state.textTextures)
+                    glDeleteTextures(1, &item.second.texture);
+                glDeleteBuffers(1, &state.textBuffer);
+                glDeleteVertexArrays(1, &state.textVao);
+                if (state.textProgram)
+                    glDeleteProgram(state.textProgram);
             }
             emscripten_webgl_make_context_current(0);
             const auto destroyed = emscripten_webgl_destroy_context(state.context);
@@ -238,7 +395,10 @@ namespace nau
             if (destroyed != EMSCRIPTEN_RESULT_SUCCESS)
                 return NauMakeError("Browser context destruction failed");
         }
+        const auto releasedTextures = state.textTextures.size();
+        state.textTextures.clear();
         MAIN_THREAD_EM_ASM({if(Module.nauRender) Module.nauRender.stopped = true; });
+        MAIN_THREAD_EM_ASM({ Module.nauText = ({labels: 0, textures: 0, released: $0, stopped: true}); }, releasedTextures);
         return {};
     }
 }  // namespace nau

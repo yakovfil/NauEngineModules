@@ -3,6 +3,7 @@ output/
 .vs/
 .vscode/
 __pycache__/
+modules/ui/src/shaders/cache/
 engine/core/modules/graphics_dx12/
 engine/core/modules/dagorECS/tests/test_ecs/test_dagor_ecs.lib_es_pull.cpp
 engine/core/modules/dagorECS/tests/test_ecs/testSystemsECS.cpp.gen.es.cpp

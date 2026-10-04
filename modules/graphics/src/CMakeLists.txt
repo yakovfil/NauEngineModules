@@ -53,6 +53,7 @@ target_link_libraries(${TargetName} PRIVATE
     CoreScene
     CoreInput
     NauKernel
+    NauScreenText
     Animation
     D3DCompiler.lib
     imgui
