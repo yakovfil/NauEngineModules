@@ -1,14 +1,22 @@
-add_library(NauUi STATIC src/widget.cpp)
+add_library(NauUi STATIC src/nau_widget.cpp)
 target_include_directories(NauUi PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include/core/modules/ui/include>)
-target_link_libraries(NauUi PUBLIC NauKernel)
+target_link_libraries(NauUi PUBLIC CoreScene)
 nau_add_compile_options(NauUi)
 set_target_properties(NauUi PROPERTIES FOLDER "${NauEngineFolder}/core/modules")
 nau_install(NauUi core)
 install(DIRECTORY include/ DESTINATION include/core/modules/ui/include)
 
-if(NAU_CORE_TESTS AND NOT EMSCRIPTEN)
+if((NAU_CORE_TESTS OR NAU_WIDGET_TESTS) AND NOT EMSCRIPTEN)
+    if(NOT TARGET gtest)
+        set(gtest_force_shared_crt OFF CACHE BOOL "" FORCE)
+        set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
+        set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+        add_subdirectory("${NAU_ENGINE_SOURCE_DIR}/engine/3rdparty_libs/googletest"
+            "${CMAKE_CURRENT_BINARY_DIR}/googletest")
+        nau_target_add_compile_options(TARGETS gtest gtest_main)
+    endif()
     include(GoogleTest)
     add_executable(test_widget tests/test_widget.cpp)
     target_link_libraries(test_widget PRIVATE NauUi gtest)

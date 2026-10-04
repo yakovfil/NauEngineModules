@@ -4,23 +4,31 @@
 
 #include <array>
 #include <type_traits>
+#include <unordered_set>
 #include <utility>
 
-#include "nau/ui/widget.h"
+#include "nau/ui/nau_widget.h"
 
 namespace nau::ui::test
 {
-    static_assert(!std::is_copy_constructible_v<Widget>);
-    static_assert(!std::is_copy_assignable_v<Widget>);
-    static_assert(!std::is_move_constructible_v<Widget>);
-    static_assert(!std::is_move_assignable_v<Widget>);
-    static_assert(std::is_same_v<decltype(std::declval<const Widget&>().parent()), const Widget*>);
-    static_assert(std::is_same_v<decltype(std::declval<const Widget&>().childAt(0)), const Widget*>);
+    static_assert(!std::is_default_constructible_v<NauWidget>);
+    static_assert(!std::is_copy_constructible_v<NauWidget>);
+    static_assert(!std::is_copy_assignable_v<NauWidget>);
+    static_assert(!std::is_move_constructible_v<NauWidget>);
+    static_assert(!std::is_move_assignable_v<NauWidget>);
+    static_assert(std::is_same_v<decltype(std::declval<const NauWidget&>().parent()), const NauWidget*>);
+    static_assert(std::is_same_v<decltype(std::declval<const NauWidget&>().childAt(0)), const NauWidget*>);
 
     TEST(WidgetTests, DefaultsAndIdentity)
     {
-        Widget first, second;
-        EXPECT_NE(first.id(), second.id());
+        auto firstOwner = NauWidget::create();
+        auto secondOwner = NauWidget::create();
+        auto& first = *firstOwner;
+        auto& second = *secondOwner;
+        EXPECT_NE(first.getUid(), second.getUid());
+        EXPECT_NE(first.getUid(), NullUid);
+        EXPECT_TRUE(first.is<scene::NauObject>());
+        EXPECT_EQ(first.as<scene::NauObject*>(), static_cast<scene::NauObject*>(&first));
         EXPECT_TRUE(first.debugName().empty());
         EXPECT_TRUE(first.isVisible());
         EXPECT_TRUE(first.isEffectivelyVisible());
@@ -33,17 +41,18 @@ namespace nau::ui::test
 
     TEST(WidgetTests, OrderedAttachmentAndBorrowedAccess)
     {
-        Widget parent;
-        std::array<Widget*, 3> children{};
+        auto parentOwner = NauWidget::create();
+        auto& parent = *parentOwner;
+        std::array<NauWidget*, 3> children{};
         for (auto& pointer : children)
         {
-            auto child = std::make_unique<Widget>();
+            auto child = NauWidget::create();
             pointer = child.get();
             ASSERT_TRUE(parent.addChild(std::move(child)));
-            EXPECT_EQ(child, nullptr);
+            EXPECT_FALSE(child);
             EXPECT_EQ(pointer->parent(), &parent);
         }
-        const Widget& view = parent;
+        const NauWidget& view = parent;
         EXPECT_EQ(view.childCount(), 3);
         for (size_t i = 0; i < children.size(); ++i)
         {
@@ -56,12 +65,12 @@ namespace nau::ui::test
 
     TEST(WidgetTests, RejectionRetainsOwnershipAndTree)
     {
-        auto root = std::make_unique<Widget>();
-        auto descendant = std::make_unique<Widget>();
+        auto root = NauWidget::create();
+        auto descendant = NauWidget::create();
         auto* rootAddress = root.get();
         auto* descendantAddress = descendant.get();
         ASSERT_TRUE(root->addChild(std::move(descendant)));
-        std::unique_ptr<Widget> empty;
+        scene::ObjectUniquePtr<NauWidget> empty;
         EXPECT_FALSE(root->addChild(std::move(empty)));
         EXPECT_FALSE(root->addChild(std::move(root)));
         EXPECT_EQ(root.get(), rootAddress);
@@ -76,22 +85,25 @@ namespace nau::ui::test
 
     TEST(WidgetTests, DetachmentAndReattachmentPreserveSubtreeAndState)
     {
-        Widget first, second;
-        std::array<Widget*, 3> children{};
+        auto firstOwner = NauWidget::create();
+        auto secondOwner = NauWidget::create();
+        auto& first = *firstOwner;
+        auto& second = *secondOwner;
+        std::array<NauWidget*, 3> children{};
         for (auto& pointer : children)
         {
-            auto child = std::make_unique<Widget>();
+            auto child = NauWidget::create();
             pointer = child.get();
             ASSERT_TRUE(first.addChild(std::move(child)));
         }
-        auto grandchild = std::make_unique<Widget>();
+        auto grandchild = NauWidget::create();
         auto* grandchildAddress = grandchild.get();
         ASSERT_TRUE(children[1]->addChild(std::move(grandchild)));
         children[1]->setDebugName("middle");
         children[1]->setVisible(false);
-        const auto identity = children[1]->id();
-        EXPECT_EQ(first.removeChild(second), nullptr);
-        EXPECT_EQ(first.removeChild(*grandchildAddress), nullptr);
+        const auto identity = children[1]->getUid();
+        EXPECT_FALSE(first.removeChild(second));
+        EXPECT_FALSE(first.removeChild(*grandchildAddress));
         auto detached = first.removeChild(*children[1]);
         ASSERT_EQ(detached.get(), children[1]);
         EXPECT_EQ(detached->parent(), nullptr);
@@ -102,37 +114,49 @@ namespace nau::ui::test
         EXPECT_EQ(grandchildAddress->parent(), detached.get());
         ASSERT_TRUE(second.addChild(std::move(detached)));
         EXPECT_EQ(children[1]->parent(), &second);
-        EXPECT_EQ(children[1]->id(), identity);
+        EXPECT_EQ(children[1]->getUid(), identity);
         EXPECT_EQ(children[1]->debugName(), "middle");
         EXPECT_FALSE(children[1]->isVisible());
     }
 
-    class LifetimeProbe final : public Widget
+    class LifetimeProbe final : public NauWidget
     {
+        NAU_OBJECT(nau::ui::test::LifetimeProbe, NauWidget)
     public:
-        explicit LifetimeProbe(int& count) :
-            m_count(count)
+        static scene::ObjectUniquePtr<NauWidget> create(int& count, IMemAllocator* allocator = nullptr, scene::ObjectWeakRef<NauWidget>* weak = nullptr)
+        {
+            return scene::ObjectUniquePtr<NauWidget>{NauObject::classCreateInstance<LifetimeProbe>(allocator, count, weak)};
+        }
+        explicit LifetimeProbe(int& count, scene::ObjectWeakRef<NauWidget>* weak) :
+            NauWidget(constructionKey()),
+            m_count(count),
+            m_weak(weak)
         {
         }
         ~LifetimeProbe() override
         {
             EXPECT_EQ(parent(), nullptr);
+            if (m_weak)
+            {
+                EXPECT_FALSE(*m_weak);
+            }
             ++m_count;
         }
 
     private:
         int& m_count;
+        scene::ObjectWeakRef<NauWidget>* m_weak;
     };
 
     TEST(WidgetTests, DestructionAndDetachedLifetime)
     {
         int rootCount = 0, childCount = 0, grandchildCount = 0, detachedCount = 0;
         int detachedChildCount = 0;
-        std::unique_ptr<Widget> root = std::make_unique<LifetimeProbe>(rootCount);
-        std::unique_ptr<Widget> child = std::make_unique<LifetimeProbe>(childCount);
-        std::unique_ptr<Widget> grandchild = std::make_unique<LifetimeProbe>(grandchildCount);
-        std::unique_ptr<Widget> detached = std::make_unique<LifetimeProbe>(detachedCount);
-        std::unique_ptr<Widget> detachedChild = std::make_unique<LifetimeProbe>(detachedChildCount);
+        scene::ObjectUniquePtr<NauWidget> root = LifetimeProbe::create(rootCount);
+        scene::ObjectUniquePtr<NauWidget> child = LifetimeProbe::create(childCount);
+        scene::ObjectUniquePtr<NauWidget> grandchild = LifetimeProbe::create(grandchildCount);
+        scene::ObjectUniquePtr<NauWidget> detached = LifetimeProbe::create(detachedCount);
+        scene::ObjectUniquePtr<NauWidget> detachedChild = LifetimeProbe::create(detachedChildCount);
         auto* detachedChildAddress = detachedChild.get();
         ASSERT_TRUE(detached->addChild(std::move(detachedChild)));
         auto* detachedAddress = detached.get();
@@ -155,12 +179,133 @@ namespace nau::ui::test
         EXPECT_EQ(detachedChildCount, 1);
     }
 
+    class CountingAllocator final : public IMemAllocator
+    {
+    public:
+        size_t allocations = 0;
+        size_t deallocations = 0;
+        std::unordered_set<void*> live;
+
+        void* allocate(size_t size) override
+        {
+            return m_delegate->allocate(size);
+        }
+        void* reallocate(void* ptr, size_t size) override
+        {
+            return m_delegate->reallocate(ptr, size);
+        }
+        void deallocate(void* ptr) override
+        {
+            m_delegate->deallocate(ptr);
+        }
+        size_t getSize(const void* ptr) const override
+        {
+            return m_delegate->getSize(ptr);
+        }
+        void* allocateAligned(size_t size, size_t alignment) override
+        {
+            auto* ptr = m_delegate->allocateAligned(size, alignment);
+            EXPECT_TRUE(live.insert(ptr).second);
+            ++allocations;
+            return ptr;
+        }
+        void* reallocateAligned(void* ptr, size_t size, size_t alignment) override
+        {
+            return m_delegate->reallocateAligned(ptr, size, alignment);
+        }
+        void deallocateAligned(void* ptr) override
+        {
+            EXPECT_EQ(live.erase(ptr), 1);
+            ++deallocations;
+            m_delegate->deallocateAligned(ptr);
+        }
+        size_t getSizeAligned(const void* ptr, size_t alignment) const override
+        {
+            return m_delegate->getSizeAligned(ptr, alignment);
+        }
+        bool isAligned(const void* ptr) const override
+        {
+            return m_delegate->isAligned(ptr);
+        }
+        bool isValid(const void* ptr) const override
+        {
+            return m_delegate->isValid(ptr);
+        }
+        const char* getName() const override
+        {
+            return m_delegate->getName();
+        }
+        void setName(const char* name) override
+        {
+            m_delegate->setName(name);
+        }
+
+    private:
+        IMemAllocator::Ptr m_delegate = getDefaultAllocator();
+    };
+
+    TEST(WidgetTests, WeakReferencesAndAllocatorLifetime)
+    {
+        CountingAllocator allocator;
+        int rootCount = 0, childCount = 0, detachedCount = 0;
+        scene::ObjectWeakRef<NauWidget> rootRef, childRef, detachedRef;
+        auto root = LifetimeProbe::create(rootCount, &allocator, &rootRef);
+        auto child = LifetimeProbe::create(childCount, &allocator, &childRef);
+        auto detached = LifetimeProbe::create(detachedCount, &allocator, &detachedRef);
+        rootRef = *root;
+        childRef = *child;
+        detachedRef = *detached;
+        ASSERT_TRUE(child->addChild(std::move(detached)));
+        ASSERT_TRUE(root->addChild(std::move(child)));
+        EXPECT_EQ(childRef->parent(), root.get());
+        detached = childRef->removeChild(*detachedRef);
+        EXPECT_TRUE(detachedRef);
+        EXPECT_EQ(detachedRef.get(), detached.get());
+        ASSERT_TRUE(root->addChild(std::move(detached)));
+        EXPECT_TRUE(detachedRef);
+        EXPECT_EQ(detachedRef->parent(), root.get());
+        detached = root->removeChild(*detachedRef);
+        root.reset();
+        EXPECT_FALSE(rootRef);
+        EXPECT_FALSE(childRef);
+        EXPECT_TRUE(detachedRef);
+        EXPECT_EQ(rootCount, 1);
+        EXPECT_EQ(childCount, 1);
+        EXPECT_EQ(detachedCount, 0);
+        EXPECT_EQ(allocator.allocations, 3);
+        EXPECT_EQ(allocator.deallocations, 2);
+        detached.reset();
+        EXPECT_FALSE(detachedRef);
+        EXPECT_EQ(detachedCount, 1);
+        EXPECT_EQ(allocator.deallocations, 3);
+        EXPECT_TRUE(allocator.live.empty());
+
+        auto base = NauWidget::create(&allocator);
+        auto baseRef = base.getRef();
+        base.reset();
+        EXPECT_FALSE(baseRef);
+        EXPECT_EQ(allocator.allocations, 4);
+        EXPECT_EQ(allocator.deallocations, 4);
+    }
+
+    TEST(WidgetDeathTests, OwnedBaseDestroyIsRejected)
+    {
+        auto owner = NauWidget::create();
+        auto weak = owner.getRef();
+        // The engine's fatal diagnostics need not write to stderr.
+        EXPECT_DEATH(static_cast<scene::NauObject&>(*owner).destroy(), "");
+        EXPECT_TRUE(weak);
+    }
+
     TEST(WidgetTests, VisibilityFollowsAncestryWithoutChangingLocalFlags)
     {
-        Widget root, hiddenParent;
+        auto rootOwner = NauWidget::create();
+        auto hiddenParentOwner = NauWidget::create();
+        auto& root = *rootOwner;
+        auto& hiddenParent = *hiddenParentOwner;
         hiddenParent.setVisible(false);
-        auto child = std::make_unique<Widget>();
-        auto leaf = std::make_unique<Widget>();
+        auto child = NauWidget::create();
+        auto leaf = NauWidget::create();
         auto* childAddress = child.get();
         auto* leafAddress = leaf.get();
         ASSERT_TRUE(child->addChild(std::move(leaf)));
