@@ -1,7 +1,6 @@
 add_subdirectory(nau_usd_format)
 add_subdirectory(anim_schema)
 add_subdirectory(asset_metadata)
-add_subdirectory(gui_schema)
 add_subdirectory(vfx_schema)
 add_subdirectory(physics_schema)
 add_subdirectory(audio_schema)

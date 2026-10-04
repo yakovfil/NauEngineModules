@@ -23,7 +23,6 @@
 #include "nau/asset_tools/db_manager.h"
 #include "nau/asset_tools/gltf2ozz_copy.h"
 #include "nau/assets/animation_asset_accessor.h"
-#include "nau/assets/ui_asset_accessor.h"
 #include "nau/dataBlock/dag_dataBlock.h"
 #include "nau/io/stream_utils.h"
 #include "nau/usd_meta_tools/usd_meta_info.h"

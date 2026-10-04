@@ -5,7 +5,6 @@
 
 #include "usd_translator/usd_translator_api.h"
 #include "usd_translator/usd_prim_adapter.h"
-#include "usd_translator/ui_translator/usd_ui_prim_adapter.h"
 
 #include <pxr/usd/usd/stage.h>
 #include <nau/scene/scene.h>
@@ -17,18 +16,14 @@ namespace UsdTranslator
     {
     public:
         using AdapterFactory = std::function<IPrimAdapter::Ptr(PXR_NS::UsdPrim)>;
-        using UIAdapterFactory = std::function<IUIPrimAdapter::Ptr(PXR_NS::UsdPrim)>;
 
         static PrimTranslator& instance();
 
         bool registerAdapter(const PXR_NS::TfToken& typeName, AdapterFactory adapterFactory, bool doOverride = false);
-        bool registerUIAdapter(const PXR_NS::TfToken& typeName, UIAdapterFactory adapterFactory, bool doOverride = false);
 
         IPrimAdapter::Ptr createAdapter(PXR_NS::UsdPrim prim) const;
-        IUIPrimAdapter::Ptr createUIAdapter(PXR_NS::UsdPrim prim) const;
         PXR_NS::TfToken findAdapterType(PXR_NS::UsdPrim prim) const;
         std::vector<PXR_NS::TfToken> registeredAdapters() const;
-        std::vector<PXR_NS::TfToken> registeredUIAdapters() const;
 
         ~PrimTranslator();
 
@@ -40,7 +35,6 @@ namespace UsdTranslator
         PrimTranslator& operator=(PrimTranslator&&) = default;
 
         PXR_NS::TfHashMap<PXR_NS::TfToken, AdapterFactory, PXR_NS::TfHash> m_adapters;
-        PXR_NS::TfHashMap<PXR_NS::TfToken, UIAdapterFactory, PXR_NS::TfHash> m_uiAdapters;
     };
 
     USD_TRANSLATOR_API void translateWorldTransform(PXR_NS::UsdPrim fromPrim, nau::scene::SceneObject& toObject);
@@ -50,10 +44,4 @@ namespace UsdTranslator
 UsdTranslator::PrimTranslator::instance().registerAdapter(PrimType, [](PXR_NS::UsdPrim prim)    \
     {                                                                                           \
         return std::make_shared<ClassName>(prim);                                               \
-    })
-
-#define DEFINE_UI_TRANSLATOR(ClassName, PrimType) bool ClassName##AdapterIsRegestred =            \
-UsdTranslator::PrimTranslator::instance().registerUIAdapter(PrimType, [](PXR_NS::UsdPrim prim)    \
-    {                                                                                             \
-        return std::make_shared<ClassName>(prim);                                                 \
     })

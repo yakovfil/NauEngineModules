@@ -32,7 +32,6 @@
 #include "nau/service/service_provider.h"
 #include "nau/shaders/shader_defines.h"
 #include "nau/shaders/shader_globals.h"
-#include "nau/ui.h"
 #include "nau/utils/performance_profiling.h"
 #include "render/daBfg/bfg.h"
 
@@ -268,7 +267,7 @@ namespace nau
 
         waitResult(rendWindow->disableRenderStages(
                        nau::render::NauRenderStage::DebugStage |
-                       nau::render::NauRenderStage::NauGUIStage |
+                       nau::render::NauRenderStage::ScreenTextStage |
                        nau::render::NauRenderStage::OutlineStage |
                        nau::render::NauRenderStage::UIDStage))
             .ignore();

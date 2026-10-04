@@ -14,7 +14,6 @@
 #include "texture/dds_asset_container.h"
 #include "texture/texture_asset_container.h"
 #include "texture/texture_asset_container_builder.h"
-#include "ui/ui_asset_container.h"
 
 namespace nau
 {
@@ -39,7 +38,6 @@ namespace nau
             NAU_MODULE_EXPORT_SERVICE(TextureAssetContainerBuilder);
             NAU_MODULE_EXPORT_SERVICE(ShaderAssetContainerLoader);
             NAU_MODULE_EXPORT_SERVICE(MaterialAssetContainerLoader);
-            NAU_MODULE_EXPORT_SERVICE(UiAssetContainerLoader);
             NAU_MODULE_EXPORT_SERVICE(SceneContainerBuilder);
             NAU_MODULE_EXPORT_SERVICE(SceneAssetLoader);
             NAU_MODULE_EXPORT_SERVICE(NanimAssetContainerLoader);

@@ -22,16 +22,7 @@ set(Sources
     usd_mesh_composer.cpp
     usd_vfx_adapter.cpp
 
-    ui_translator/usd_ui_translator.cpp
-    ui_translator/usd_ui_prim_adapter.cpp
-    ui_translator/usd_ui_draw_node_adapter.cpp
-    ui_translator/usd_ui_label_adapter.cpp
-    ui_translator/usd_ui_button_adapter.cpp
-    ui_translator/usd_ui_scroll_adapter.cpp
 
-    ui_translator/usd_ui_layer_adapter.cpp
-    ui_translator/usd_ui_sprite_adapter.cpp
-    ui_translator/usd_ui_node_adapter.cpp
 )
 
 set(Headers
@@ -58,15 +49,6 @@ set(Headers
     usd_mesh_composer.h
     usd_vfx_adapter.h
 
-    ui_translator/usd_ui_translator.h
-    ui_translator/usd_ui_prim_adapter.h
-    ui_translator/usd_ui_draw_node_adapter.h
-    ui_translator/usd_ui_label_adapter.h
-    ui_translator/usd_ui_button_adapter.h
-    ui_translator/usd_ui_scroll_adapter.h
-    ui_translator/usd_ui_layer_adapter.h
-    ui_translator/usd_ui_sprite_adapter.h
-    ui_translator/usd_ui_node_adapter.h
 )
 
 source_group("Sources" FILES ${Sources})
@@ -103,7 +85,6 @@ target_link_libraries(${TargetName}
     Physics
     PhysicsJolt
 
-    ui
 
     VFX
  
@@ -113,7 +94,6 @@ target_link_libraries(${TargetName}
 
     NauAudioSchema
     NauVFXSchema
-    NauGuiSchema
     NauPhysicsSchema
 )
 

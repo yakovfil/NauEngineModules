@@ -62,7 +62,6 @@ DefineNauMetaPlugin
     DeclarePrimMetaGenerator(NauAssetDefaultPrimGenerator<PXR_NS::UsdNauAssetAudioContainer>, "AudioContainer");
     DeclarePrimMetaGenerator(NauAssetDefaultPrimGenerator<PXR_NS::UsdNauAssetVFX>, "VFXInstance");
     DeclarePrimMetaGenerator(NauAssetDefaultPrimGenerator<PXR_NS::UsdNauPhysicsMaterial>, "PhysicsMaterial");
-    DeclarePrimMetaGenerator(NauAssetDefaultPrimGenerator<PXR_NS::UsdNauAssetUI>, "UI");
     DeclarePrimMetaGenerator(NauAssetDefaultPrimGenerator<PXR_NS::UsdNauAssetInput>, "InputAction");
     DeclareMetaGenerator(NauAssetDefaultGenerator<PXR_NS::UsdNauAssetTexture>, { ".jpg", ".png", ".dds", ".bmp", "tiff"});
     DeclareMetaGenerator(NauAssetDefaultGenerator<PXR_NS::UsdNauAssetSound>, { ".wav", ".mp3", ".flac" });

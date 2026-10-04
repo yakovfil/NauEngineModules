@@ -9,7 +9,6 @@
 #include "graphics_impl.h"
 #include "nau/gui/dag_imgui.h"
 #include "nau/gui/imguiInput.h"
-#include "nau/ui.h"
 #include "render_window_impl.h"
 #include "nau/text/screen_text.h"
 
@@ -253,19 +252,14 @@ namespace nau::render
             };
         }));
 
-        m_nauGuiNodes.addNode(
-            dabfg::register_node(nau::utils::format("{}_{}", "nau_gui", m_swapchain).c_str(), DABFG_PP_NODE_SRC, [this](dabfg::Registry registry)
+        m_screenTextNodes.addNode(
+            dabfg::register_node(nau::utils::format("{}_{}", "screen_text", m_swapchain).c_str(), DABFG_PP_NODE_SRC, [this](dabfg::Registry registry)
         {
             registry.orderMeAfter(nau::utils::format("{}_{}", "debug_render", m_swapchain).c_str());
             registry.executionHas(dabfg::SideEffects::External);
 
             return [this]()
             {
-                if (nau::getServiceProvider().has<nau::ui::UiManager>())
-                {
-                    BaseTexture* backBuf = d3d::get_back_buffer_rt(m_swapchain);
-                    nau::getServiceProvider().get<nau::ui::UiManager>().render(backBuf);
-                }
                 if (m_swapchain == DEFAULT_SWAPID && getServiceProvider().has<text::ScreenText>())
                 {
                     setRenderTarget();
@@ -284,7 +278,7 @@ namespace nau::render
             m_debugNodes.addNode(
                 dabfg::register_node(nau::utils::format("{}_{}", "debug_gui", m_swapchain).c_str(), DABFG_PP_NODE_SRC, [this](dabfg::Registry registry)
             {
-                registry.orderMeAfter(nau::utils::format("{}_{}", "nau_gui", m_swapchain).c_str());
+                registry.orderMeAfter(nau::utils::format("{}_{}", "screen_text", m_swapchain).c_str());
                 registry.executionHas(dabfg::SideEffects::External);
 
                 imgui_switch_state();

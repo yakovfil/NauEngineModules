@@ -5,4 +5,3 @@
 
 #include "usd_translator/usd_stage_translator.h"
 #include "usd_translator/usd_prim_translator.h"
-#include "usd_translator/ui_translator/usd_ui_translator.h"

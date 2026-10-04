@@ -12,7 +12,6 @@
 #include "nau/asset_tools/db_manager.h"
 #include "nau/assets/animation_asset_accessor.h"
 #include "nau/assets/asset_db.h"
-#include "nau/assets/ui_asset_accessor.h"
 #include "nau/dataBlock/dag_dataBlock.h"
 #include "nau/diag/logging.h"
 #include "nau/io/stream_utils.h"

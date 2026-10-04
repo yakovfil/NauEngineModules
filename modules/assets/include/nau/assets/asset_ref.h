@@ -65,13 +65,6 @@ namespace nau::assets
     };
 
     /**
-        Temporary ui scene asset tags.
-    */
-    struct UiSceneAssetTag
-    {
-    };
-
-    /**
         Temporary generic asset tags.
     */
     struct GenericAssetTag
@@ -289,7 +282,6 @@ namespace nau
     using TextureAssetRef = AssetRef<assets::TextureAssetTag>;
     using ShaderAssetRef = AssetRef<assets::ShaderAssetTag>;
     using MaterialAssetRef = AssetRef<assets::MaterialAssetTag>;
-    using UiSceneAssetRef = AssetRef<assets::UiSceneAssetTag>;
 
     struct NAU_ABSTRACT_TYPE RuntimeAssetRefValue : virtual RuntimePrimitiveValue
     {

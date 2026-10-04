@@ -59,7 +59,6 @@ target_link_libraries(${TargetName} PRIVATE
     imgui
     gainput
     DebugRenderer
-    ui
     VFX
 )
 

@@ -5,6 +5,8 @@
 
 #include <queue>
 
+#include "nau/diag/error.h"
+#include "nau/usd_meta_tools/retired_ui.h"
 #include "usd_prim_translator.h"
 
 using namespace nau;
@@ -286,6 +288,11 @@ namespace UsdTranslator
 
     nau::async::Task<> StageTranslator::initScene()
     {
+        if (nau::containsRetiredUi(m_usdStage))
+        {
+            co_await nau::Result<>{NauMakeError("UI content is unsupported: the Cocos2d-backed UI implementation has been retired.")};
+            co_return;
+        }
         auto& sceneRoot = m_scene->getRoot();
         auto rootPrim = m_rootPath.IsEmpty() ? m_usdStage->GetPseudoRoot() : m_usdStage->GetPrimAtPath(m_rootPath);
         co_await initSceneObjects(rootPrim, sceneRoot, m_rootAdapter);

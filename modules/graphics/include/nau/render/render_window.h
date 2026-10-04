@@ -22,7 +22,7 @@ namespace nau::render
         GBufferStage = NauFlag(1),
         OutlineStage = NauFlag(2),
         EnvironmentStage = NauFlag(3),
-        NauGUIStage = NauFlag(4),
+        ScreenTextStage = NauFlag(4),
         PostFXStage = NauFlag(5),
         UIDStage = NauFlag(6),
         DebugStage = NauFlag(7))

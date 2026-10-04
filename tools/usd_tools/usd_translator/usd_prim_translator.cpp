@@ -36,16 +36,6 @@ namespace UsdTranslator
         return true;
     }
 
-    bool PrimTranslator::registerUIAdapter(const PXR_NS::TfToken& typeName, UIAdapterFactory adapterFactory, bool doOverride /*= false*/)
-    {
-        auto& dest = m_uiAdapters[typeName];
-        if (!doOverride && dest)
-            return false;
-
-        dest = adapterFactory;
-        return true;
-    }
-
     IPrimAdapter::Ptr PrimTranslator::createAdapter(PXR_NS::UsdPrim prim) const
     {
         auto& typeInfo = prim.GetPrimTypeInfo();
@@ -62,26 +52,6 @@ namespace UsdTranslator
             it = m_adapters.find(typeInfo.GetSchemaTypeName());
         if (it == m_adapters.end())
             it = m_adapters.find(PXR_NS::TfToken(g_typeName.data()));
-
-        return it->second(prim);
-    }
-
-    UsdTranslator::IUIPrimAdapter::Ptr PrimTranslator::createUIAdapter(PXR_NS::UsdPrim prim) const
-    {
-        auto& typeInfo = prim.GetPrimTypeInfo();
-
-        for (auto apiType : typeInfo.GetAppliedAPISchemas())
-        {
-            auto it = m_uiAdapters.find(apiType);
-            if (it != m_uiAdapters.end())
-                return it->second(prim);
-        }
-
-        auto it = m_uiAdapters.find(typeInfo.GetTypeName());
-        if (it == m_uiAdapters.end())
-            it = m_uiAdapters.find(typeInfo.GetSchemaTypeName());
-        if (it == m_uiAdapters.end())
-            it = m_uiAdapters.find("%default"_tftoken);
 
         return it->second(prim);
     }
@@ -124,15 +94,6 @@ namespace UsdTranslator
         {
             out.push_back(item.first);
         }
-
-        return out;
-    }
-
-    std::vector<PXR_NS::TfToken> PrimTranslator::registeredUIAdapters() const
-    {
-        std::vector<PXR_NS::TfToken> out;
-        for (auto item : m_uiAdapters)
-            out.push_back(item.first);
 
         return out;
     }

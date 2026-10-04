@@ -108,7 +108,7 @@ namespace nau::render
         GraphNodes m_gBufferNodes;
         GraphNodes m_outlineNodes;
         GraphNodes m_environmentNodes;
-        GraphNodes m_nauGuiNodes;
+        GraphNodes m_screenTextNodes;
         GraphNodes m_postFxNodes;
         GraphNodes m_uidNodes;
         GraphNodes m_debugNodes;
@@ -119,7 +119,7 @@ namespace nau::render
             {    NauRenderStage::GBufferStage,     m_gBufferNodes},
             {    NauRenderStage::OutlineStage,     m_outlineNodes},
             {NauRenderStage::EnvironmentStage, m_environmentNodes},
-            {     NauRenderStage::NauGUIStage,      m_nauGuiNodes},
+            { NauRenderStage::ScreenTextStage,  m_screenTextNodes},
             {     NauRenderStage::PostFXStage,      m_postFxNodes},
             {        NauRenderStage::UIDStage,         m_uidNodes},
             {      NauRenderStage::DebugStage,       m_debugNodes}

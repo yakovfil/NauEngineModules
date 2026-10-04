@@ -32,7 +32,6 @@ namespace nau
             "NauInputLib",
             "NauAudioLib",
             "NauAnimationAssetLib",
-            "NauGuiLib",
             "NauPhysicsLib",
             "NauAssetMetadata"
         };

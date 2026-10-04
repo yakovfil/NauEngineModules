@@ -25,7 +25,6 @@ if(BUILD_SHARED_LIBS)
     set_target_properties (
         usd-plugins 
         NauAssetMetadata 
-        NauGuiSchema 
         NauAnimationClipAsset 
         NauPhysicsSchema 
         NauAudioSchema 

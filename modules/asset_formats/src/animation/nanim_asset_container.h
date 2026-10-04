@@ -9,7 +9,6 @@
 #include <vector>
 
 #include "nau/assets/asset_container.h"
-#include "nau/assets/ui_asset_accessor.h"
 
 namespace nau
 {

@@ -101,7 +101,7 @@ namespace nau::render
 
         for (auto nodeGroup :
              {&m_gBufferNodes,
-              &m_nauGuiNodes,
+              &m_screenTextNodes,
               &m_postFxNodes,
               &m_uidNodes,
               &m_environmentNodes})

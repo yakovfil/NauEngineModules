@@ -157,7 +157,7 @@ namespace nau::render
                                                     [this](dabfg::Registry registry)
         {
             registry.orderMeAfter(nau::utils::format("{}_{}", "post_fx_nodes", m_swapchain).c_str());
-            registry.orderMeBefore(nau::utils::format("{}_{}", "nau_gui", m_swapchain).c_str());
+            registry.orderMeBefore(nau::utils::format("{}_{}", "screen_text", m_swapchain).c_str());
             registry.executionHas(dabfg::SideEffects::External);
 
             auto outlineMaskId = registry.readTexture(nau::utils::format("{}_{}", "outline_mask", m_swapchain).c_str())

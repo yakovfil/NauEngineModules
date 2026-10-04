@@ -4,7 +4,6 @@
 
 #include "pxr/pxr.h"
 #include "usd_translator_wrapper.h"
-#include <usd_translator/ui_translator/usd_ui_translator.h>
 
 void translateScene(PXR_NS::UsdStageRefPtr stage, nau::scene::IScene::WeakRef scene)
 {
@@ -15,14 +14,4 @@ void translateScene(PXR_NS::UsdStageRefPtr stage, nau::scene::IScene::WeakRef sc
 
     auto task = translator.initScene();
     nau::async::wait(task);
-}
-
-
-void translateUIScene(PXR_NS::UsdStageRefPtr stage, nau::DataBlock& blk)
-{
-    UsdTranslator::UITranslator translator{};
-    translator.setSource(stage);
-    translator.initSceneDataOnly();
-    auto adapter = translator.getRootAdapter();
-    adapter->serializeToBlk(blk);
 }

@@ -3,12 +3,13 @@
 
 #include "nau/usd_meta_tools/usd_meta_generator.h"
 
-#include "nau/shared/logger.h"
-#include "usd_proxy/usd_proxy.h"
-
 #include <pxr/usd/usd/attribute.h>
 
 #include <filesystem>
+
+#include "nau/shared/logger.h"
+#include "nau/usd_meta_tools/retired_ui.h"
+#include "usd_proxy/usd_proxy.h"
 
 namespace nau
 {
@@ -205,6 +206,11 @@ namespace nau
     PXR_NS::UsdStageRefPtr UsdMetaGenerator::processContainer(const std::filesystem::path& path, const MetaArgs& args)
     {
         auto srcStage = PXR_NS::UsdStage::Open(path.string());
+        if (containsRetiredUi(srcStage))
+        {
+            LOG_ERROR("UI asset {} is unsupported: the Cocos2d-backed UI implementation has been retired.", path.string());
+            return nullptr;
+        }
         if (!srcStage)
         {
             return nullptr;
