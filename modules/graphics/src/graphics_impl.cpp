@@ -312,8 +312,9 @@ namespace nau
 
         for (auto& [world, scene] : m_worldToGraphicScene)
         {
-            auto task = scene->update();
-            task.detach();
+            // Asset updates retain scene/GPU resources until completion. Keep them
+            // inside this frame so teardown cannot release the driver underneath them.
+            co_await scene->update();
         }
 
         d3d::finish_render_commands();
@@ -435,6 +436,11 @@ namespace nau
         m_renderWindows.clear();
         m_defaultRenderWindow.reset();
 
+        if (m_defaultTex)
+        {
+            m_defaultTex->destroy();
+            m_defaultTex = nullptr;
+        }
         dabfg::shutdown();
         d3d::release_driver();
     }

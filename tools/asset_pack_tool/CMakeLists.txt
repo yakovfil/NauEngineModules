@@ -32,3 +32,10 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src PREFIX Source FILES ${Sources}
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include PREFIX Headers FILES ${PublicHeaders})
 
 install(TARGETS ${TargetName} DESTINATION bin/$<CONFIG> PUBLIC_HEADER DESTINATION include/${TargetName})
+
+if(NOT EMSCRIPTEN)
+  add_executable(AssetPackToolCmd cmd/main.cpp)
+  target_link_libraries(AssetPackToolCmd PRIVATE AssetPackTool)
+  nau_add_compile_options(AssetPackToolCmd)
+  install(TARGETS AssetPackToolCmd DESTINATION bin/$<CONFIG>)
+endif()

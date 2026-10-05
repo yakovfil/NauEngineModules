@@ -101,7 +101,7 @@ namespace nau
 
         void stopGraphics();
 
-        BaseTexture* m_defaultTex;
+        BaseTexture* m_defaultTex = nullptr;
 
         nau::FrameAllocator m_frameAllocator;
 

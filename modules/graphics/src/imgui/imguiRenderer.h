@@ -17,6 +17,7 @@ class DagImGuiRenderer
 {
 public:
   DagImGuiRenderer();
+  ~DagImGuiRenderer();
   void setBackendFlags(ImGuiIO &io);
   void createAndSetFontTexture(ImGuiIO &io);
   void render(ImDrawData *draw_data);

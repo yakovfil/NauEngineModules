@@ -47,7 +47,18 @@ namespace nau::render
         }
     }  // namespace details
 
-    EnvironmentRenderer::~EnvironmentRenderer() = default;
+    EnvironmentRenderer::~EnvironmentRenderer()
+    {
+        if (m_envCubemapIndexBuffer)
+            m_envCubemapIndexBuffer->destroy();
+        for (auto* texture : {m_envCubemapTexture, m_irradianceMap, m_reflectionMap})
+            if (texture)
+                texture->destroy();
+        for (auto program : {m_panoramaToCubemapCSProgram, m_genIrradianceMapCSProgram, m_genReflectionMapCSProgram})
+            if (program != BAD_PROGRAM)
+                d3d::delete_program(program);
+        d3d::destroy_sampler(m_csTexSampler);
+    }
 
     EnvironmentRenderer::EnvironmentRenderer(MaterialAssetView::Ptr envCubemapMaterial, ShaderAssetView::Ptr panoramaToCubemapComputeShader, ShaderAssetView::Ptr genIrradianceMapComputeShader, ShaderAssetView::Ptr genReflectionMapComputeShader) :
         m_envCubemapMaterial(envCubemapMaterial),

@@ -13,6 +13,7 @@ namespace nau
     {
         NAU_CLASS_(nau::TextureAssetView, IAssetView)
     public:
+        ~TextureAssetView() override;
         static async::Task<nau::Ptr<TextureAssetView>> createFromAssetAccessor(nau::Ptr<> accessor);
 
         inline BaseTexture* getTexture()
@@ -22,6 +23,6 @@ namespace nau
 
         using Ptr = nau::Ptr<TextureAssetView>;
     private:
-        BaseTexture* m_Texture;
+        BaseTexture* m_Texture = nullptr;
     };
 }  // namespace nau

@@ -12,6 +12,14 @@ nau::StaticMesh::StaticMesh()
 {
 }
 
+nau::StaticMesh::~StaticMesh()
+{
+    for (auto& lod : lods)
+        for (auto* buffer : {lod.m_positionsBuffer, lod.m_normalsBuffer, lod.m_tangentsBuffer, lod.m_texCoordsBuffer, lod.m_indexBuffer})
+            if (buffer)
+                buffer->destroy();
+}
+
 std::span<nau::math::float4> getTangents(const std::span<uint16_t>& indices,
                                          const std::span<nau::math::float3>& positions,
                                          const std::span<nau::math::float3>& normals,

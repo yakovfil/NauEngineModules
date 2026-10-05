@@ -33,12 +33,12 @@ namespace nau
 
     struct StaticMeshLod
     {
-        Sbuffer* m_positionsBuffer; // TODO: change to ResPtr's
-        Sbuffer* m_normalsBuffer;
-        Sbuffer* m_tangentsBuffer;
-        Sbuffer* m_texCoordsBuffer;
+        Sbuffer* m_positionsBuffer = nullptr;  // TODO: change to ResPtr's
+        Sbuffer* m_normalsBuffer = nullptr;
+        Sbuffer* m_tangentsBuffer = nullptr;
+        Sbuffer* m_texCoordsBuffer = nullptr;
 
-        Sbuffer* m_indexBuffer;
+        Sbuffer* m_indexBuffer = nullptr;
 
         uint32_t m_indexCount;
         uint32_t m_vertexCount;
@@ -56,7 +56,7 @@ namespace nau
 
         using Ptr = nau::Ptr<StaticMesh>;
 
-        virtual ~StaticMesh() = default;
+        ~StaticMesh() override;
         StaticMesh();
 
         const nau::StaticMeshLod& getLod(uint32_t lodInd) const;

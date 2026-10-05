@@ -1,84 +1,112 @@
-// Copyright 2024 N-GINN LLC. All rights reserved.
+// Copyright 2026 N-GINN LLC. All rights reserved.
 // Use of this source code is governed by a BSD-3 Clause license that can be found in the LICENSE file.
 #include "nau/asset_pack/asset_pack_builder.h"
 
-#include <string>
-#include <tuple>
-#include <vector>
+#include <json/json.h>
 
-#include "nau/io/asset_pack.h"
-#include "nau/io/file_system.h"
-#include "nau/io/nau_container.h"
-#include "nau/io/special_paths.h"
-#include "nau/io/stream.h"
-#include "nau/memory/bytes_buffer.h"
-#include "nau/serialization/runtime_value_builder.h"
-#include "nau/string/string_conv.h"
+#include <array>
+#include <cstdio>
+#include <limits>
+#include <memory>
+#include <set>
+
+#include "nau/io/asset_pack_file_system.h"
 
 namespace nau
 {
-    Result<io::AssetPackIndexData> writeAssetPackIndexDataToStream(const std::vector<PackInputFileData>& content, PackBuildOptions buildOptions, const std::string& tempFilePath)
+    namespace
     {
-        using namespace io;
-        AssetPackIndexData packData;
-        packData.version = buildOptions.version;
-        packData.description = buildOptions.description;
-
-        IStreamWriter::Ptr tempStream = createNativeFileStream(tempFilePath.data(), AccessMode::Write, OpenFileMode::CreateAlways);
-
-        for (const PackInputFileData& content : content)
+        Result<> writeExact(io::IStreamWriter& stream, const void* bytes, size_t size)
         {
-            IStreamReader::Ptr srcStream = content.stream();
-            NAU_ASSERT(srcStream, "Invalid stream:({})", content.filePathInPack);
-            if (!srcStream)
-            {
-                continue;
-            }
-
-            AssetPackFileEntry& packEntry = packData.content.emplace_back();
-            packEntry.blobData.offset = tempStream->getPosition();
-            copyStream(*tempStream, *srcStream).ignore();
-
-            packEntry.filePath = content.filePathInPack;
-            packEntry.contentCompression = packEntry.clientSize;
-            packEntry.clientSize = srcStream->getPosition();
-            packEntry.blobData.size = srcStream->getPosition();
+            if (!size)
+                return {};
+            auto written = stream.write(static_cast<const std::byte*>(bytes), size);
+            if (!written)
+                return written.getError();
+            if (*written != size)
+                return NauMakeError("Asset pack writer: short write");
+            return {};
         }
+    }  // namespace
 
-        tempStream->flush();
-        return packData;
-    }
-
-    Result<> buildAssetPackage(const std::vector<PackInputFileData>& content, PackBuildOptions buildOptions, io::IStreamWriter::Ptr outputStream)
+    Result<> buildAssetPackage(const std::vector<PackInputFileData>& content, PackBuildOptions options, io::IStreamWriter::Ptr output)
     {
-        using namespace io;
-        const std::u8string u8tempFilePath = getNativeTempFilePath();
-        const std::string tempFilePath(u8tempFilePath.cbegin(), u8tempFilePath.cend());
-
-        AssetPackIndexData packIndexData = *writeAssetPackIndexDataToStream(content, buildOptions, tempFilePath);
-        writeContainerHeader(outputStream, "nau-vfs-pack", nau::makeValueRef(packIndexData));
-
-        IStreamReader::Ptr temp = createNativeFileStream(tempFilePath.data(), AccessMode::Read, OpenFileMode::OpenExisting);
-        copyStream(*outputStream, *temp).ignore();
-
+        if (!output || options.version != "0.1" || options.contentType != "application/json")
+            return NauMakeError("Asset pack writer: invalid output or options");
+        std::unique_ptr<std::FILE, decltype(&std::fclose)> temporary(std::tmpfile(), &std::fclose);
+        if (!temporary)
+            return NauMakeError("Asset pack writer: temporary file creation failed");
+        Json::Value root(Json::objectValue);
+        root["version"] = options.version;
+        root["description"] = options.description;
+        root["content"] = Json::Value(Json::arrayValue);
+        std::set<std::string> names;
+        uint64_t total = 0;
+        std::array<std::byte, 65536> buffer;
+        for (const auto& input : content)
+        {
+            auto name = io::normalizeAssetPackPath(input.filePathInPack);
+            if (!name || name->empty() || !names.insert(*name).second)
+                return NauMakeError("Asset pack writer: invalid or duplicate path {}", input.filePathInPack);
+            auto stream = input.stream ? input.stream() : nullptr;
+            if (!stream)
+                return NauMakeError("Asset pack writer: cannot open {}", *name);
+            uint64_t size = 0;
+            while (true)
+            {
+                auto read = stream->read(buffer.data(), buffer.size());
+                if (!read)
+                    return read.getError();
+                if (*read > buffer.size())
+                    return NauMakeError("Asset pack writer: invalid read count");
+                if (!*read)
+                    break;
+                if (std::fwrite(buffer.data(), 1, *read, temporary.get()) != *read)
+                    return NauMakeError("Asset pack writer: temporary write failed");
+                if (*read > uint64_t(std::numeric_limits<int64_t>::max()) - total - size)
+                    return NauMakeError("Asset pack writer: package exceeds supported size");
+                size += *read;
+            }
+            Json::Value entry(Json::objectValue);
+            entry["filePath"] = *name;
+            entry["contentCompression"] = "";
+            entry["clientSize"] = Json::UInt64(size);
+            entry["blobData"]["offset"] = Json::UInt64(total);
+            entry["blobData"]["size"] = Json::UInt64(size);
+            root["content"].append(std::move(entry));
+            total += size;
+        }
+        for (const auto& name : names)
+            for (size_t slash = name.find('/'); slash != name.npos; slash = name.find('/', slash + 1))
+                if (names.contains(name.substr(0, slash)))
+                    return NauMakeError("Asset pack writer: file/directory conflict");
+        Json::StreamWriterBuilder builder;
+        builder["indentation"] = "";
+        const std::string json = Json::writeString(builder, root);
+        if (json.size() > io::AssetPackReadOptions{}.maxIndexBytes || content.size() > io::AssetPackReadOptions{}.maxEntries)
+            return NauMakeError("Asset pack writer: index limit exceeded");
+        const std::string header = "NauContent-Kind: nau-vfs-pack\nContent-Type: application/json\nContent-Length: " + std::to_string(json.size()) + "\n\n\n";
+        NauCheckResult(writeExact(*output, header.data(), header.size()));
+        NauCheckResult(writeExact(*output, json.data(), json.size()));
+        if (std::fflush(temporary.get()) || std::fseek(temporary.get(), 0, SEEK_SET))
+            return NauMakeError("Asset pack writer: temporary seek/flush failed");
+        while (total)
+        {
+            const size_t count = static_cast<size_t>(std::min<uint64_t>(total, buffer.size()));
+            if (std::fread(buffer.data(), 1, count, temporary.get()) != count)
+                return NauMakeError("Asset pack writer: temporary read failed");
+            NauCheckResult(writeExact(*output, buffer.data(), count));
+            total -= count;
+        }
+        output->flush();
         return {};
     }
 
-    Result<io::AssetPackIndexData> readAssetPackage(io::IStreamReader::Ptr packageStream)
+    Result<io::AssetPackIndexData> readAssetPackage(io::IStreamReader::Ptr stream)
     {
-        RuntimeValue::Ptr packData;
-        size_t headerDataOffset;
-        std::tie(packData, headerDataOffset) = *readContainerHeader(packageStream);
-
-        io::AssetPackIndexData packIndexData;
-        auto value = nau::makeValueRef(packIndexData);
-        auto res = RuntimeValue::assign(value, packData);
-
-        for (io::AssetPackFileEntry& content : packIndexData.content)
-        {
-            content.blobData.offset += headerDataOffset;
-        }
-
-        return {packIndexData};
+        if (!stream)
+            return NauMakeError("Asset pack reader: missing stream");
+        const size_t length = stream->setPosition(io::OffsetOrigin::End, 0);
+        return io::readAssetPackIndex(std::move(stream), length);
     }
 }  // namespace nau

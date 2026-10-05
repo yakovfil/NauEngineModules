@@ -11,6 +11,12 @@
 
 namespace nau
 {
+    TextureAssetView::~TextureAssetView()
+    {
+        if (m_Texture)
+            m_Texture->destroy();
+    }
+
     namespace
     {
 

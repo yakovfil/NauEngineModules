@@ -36,6 +36,17 @@ void DagImGuiRenderer::setBackendFlags(ImGuiIO& io)
     io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
 }
 
+DagImGuiRenderer::~DagImGuiRenderer()
+{
+    if (fontTex)
+        fontTex->destroy();
+    if (vb)
+        vb->destroy();
+    if (ib)
+        ib->destroy();
+    d3d::destroy_sampler(sampler);
+}
+
 void DagImGuiRenderer::createAndSetFontTexture(ImGuiIO& io)
 {
     unsigned char* pixels;
@@ -45,6 +56,8 @@ void DagImGuiRenderer::createAndSetFontTexture(ImGuiIO& io)
     nau::HeapByteAllocator tmpAlloc;
     TexImage32* img = TexImage32::create(width, height, &tmpAlloc);
     memcpy(img->getPixels(), pixels, width * height * 4);
+    if (fontTex)
+        fontTex->destroy();
     fontTex = d3d::create_tex(img, width, height, TEXFMT_R8G8B8A8, 1, u8"imgui_font");
     memfree(img, &tmpAlloc);
     io.Fonts->TexID = reinterpret_cast<ImTextureID>(fontTex);
@@ -79,12 +92,16 @@ void DagImGuiRenderer::render(ImDrawData* draw_data)
     // Create and grow vertex/index buffers if needed
     if (!vb || vbSize < draw_data->TotalVtxCount)
     {
+        if (vb)
+            vb->destroy();
         vb = d3d::create_vb(sizeof(ImDrawVert) * (draw_data->TotalVtxCount + 5000), SBCF_DYNAMIC | SBCF_CPU_ACCESS_WRITE, u8"imgui_vb");
         NAU_ASSERT(vb);
         vbSize = draw_data->TotalVtxCount + 5000;
     }
     if (!ib || ibSize < draw_data->TotalIdxCount)
     {
+        if (ib)
+            ib->destroy();
         ib = d3d::create_ib(sizeof(ImDrawIdx) * (draw_data->TotalIdxCount + 10000), SBCF_DYNAMIC | SBCF_CPU_ACCESS_WRITE, u8"imgui_ib");
         NAU_ASSERT(ib);
         ibSize = draw_data->TotalIdxCount + 10000;
