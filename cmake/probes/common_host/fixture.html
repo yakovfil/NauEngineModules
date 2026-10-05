@@ -1,0 +1,8 @@
+<!doctype html>
+<meta charset="utf-8"><title>Common host acceptance</title><link rel="icon" href="data:,">
+<div id="nau-window" style="width:200px;height:100px"></div>
+<script>
+const scenario=new URLSearchParams(location.search).get('scenario')||'success';
+window.result=null; let beats=0; const heartbeat=setInterval(()=>++beats,10);
+var Module={arguments:[scenario],onExit:code=>{clearInterval(heartbeat);window.result={code,stats:Module.fixtureStats,status:Module.nauRuntime?.status,history:Module.nauRuntime?.history,beats};},onAbort:reason=>{window.result={code:1,error:String(reason)};}};
+</script><script src="NauCommonHostTests.js"></script>

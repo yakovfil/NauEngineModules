@@ -193,6 +193,8 @@ namespace nau
 
     async::Task<> GraphicsImpl::requestViewportResize(int32_t newWidth, int32_t newHeight, void* hwnd)
     {
+        if (m_isDisposed)
+            co_return;
         ASYNC_SWITCH_EXECUTOR(getPreRenderExecutor());
 
         if (newWidth == 0 || newHeight == 0)
@@ -214,6 +216,8 @@ namespace nau
 
     async::Task<> GraphicsImpl::registerWindow(void* hwnd)
     {
+        if (m_isDisposed)
+            co_return;
         ASYNC_SWITCH_EXECUTOR(getPreRenderExecutor());
 
         if (m_hwndToSwapChain.size() >= 7)
@@ -226,6 +230,8 @@ namespace nau
 
     async::Task<> GraphicsImpl::closeWindow(void* hwnd)
     {
+        if (m_isDisposed)
+            co_return;
         ASYNC_SWITCH_EXECUTOR(getPreRenderExecutor());
 
         if (!m_hwndToSwapChain.count(hwnd))
@@ -243,6 +249,8 @@ namespace nau
 
     async::Task<WeakPtr<nau::render::IRenderWindow>> GraphicsImpl::createRenderWindow(void* hwnd)
     {
+        if (m_isDisposed)
+            co_return nullptr;
         NAU_ASSERT(hwnd);
 
         ASYNC_SWITCH_EXECUTOR(getPreRenderExecutor());
@@ -275,7 +283,6 @@ namespace nau
         co_return weak;
     }
 
-
     async::Task<bool> GraphicsImpl::renderFrame()
     {
         NAU_FATAL(m_isInitialized, "Service GraphicsImpl is not initialized!");
@@ -284,8 +291,15 @@ namespace nau
         {
             if (!m_renderStopedSignal.isReady())
             {
+                // Accepted window/asset operations still own graphics resources.
+                // Settle them on this worker before releasing the driver, including
+                // when application startup fails before the next normal frame.
+                auto drained = co_await executeRenderJobs().doTry();
                 stopGraphics();
-                m_renderStopedSignal.resolve();
+                if (drained)
+                    m_renderStopedSignal.resolve();
+                else
+                    m_renderStopedSignal.reject(drained.getError());
             }
 
             co_return false;
