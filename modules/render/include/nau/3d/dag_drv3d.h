@@ -1084,7 +1084,7 @@ NAU_RENDER_EXPORT SamplerHandle create_sampler(const SamplerInfo &sampler_info);
 // Destroys given sampler
 // The driver may not actually destroy the sampler
 // Using this sampler after calling this function is UB
-void destroy_sampler(SamplerHandle sampler);
+NAU_RENDER_EXPORT void destroy_sampler(SamplerHandle sampler);
 
 // Binds given sampler to the slot
 // This call is not thread-safe, requires global gpu lock to be holded
@@ -1429,7 +1429,7 @@ inline bool drawind(int type, int startind, int numprim, int base_vertex)
   return drawind_base(type, startind, numprim, base_vertex, 1, 0);
 }
 /// draw primitives from user pointer (rather slow)
-bool draw_up(int type, int numprim, const void *ptr, int stride_bytes);
+NAU_RENDER_EXPORT bool draw_up(int type, int numprim, const void *ptr, int stride_bytes);
 /// draw indexed primitives from user pointer (rather slow)
 bool drawind_up(int type, int minvert, int numvert, int numprim, const uint16_t *ind, const void *ptr, int stride_bytes);
 
