@@ -5,9 +5,11 @@
 #include "usd_component_adapter.h"
 
 #include <pxr/usd/usdGeom/primvarsAPI.h>
+#include <pxr/usd/usdGeom/xformCache.h>
 
 #include "nau/diag/logging.h"
 #include "nau/scene/components/internal/missing_component.h"
+#include "nau/scene/components/scene_component.h"
 #include "nau/usd_wrapper/usd_attribute_wrapper.h"
 #include "usd_prim_translator.h"
 
@@ -84,6 +86,22 @@ namespace UsdTranslator
         }
 
         auto componentAsRuntimeObject = m_component->as<nau::DynamicObject*>();
+        // NauComponent can also represent a scene component (for example the
+        // editor's camera). Restore its local transform, not its owner's.
+        if (auto* sceneComponent = m_component->as<nau::scene::SceneComponent*>())
+        {
+            PXR_NS::UsdGeomXformCache cache;
+            bool resets = false;
+            auto transform = cache.GetLocalTransformation(getPrim(), &resets);
+            const auto translation = transform.ExtractTranslation();
+            const PXR_NS::GfVec3d scale(transform.GetRow3(0).GetLength(), transform.GetRow3(1).GetLength(), transform.GetRow3(2).GetLength());
+            transform.Orthonormalize(false);
+            const auto rotation = transform.ExtractRotationQuat();
+            const auto xyz = rotation.GetImaginary();
+            sceneComponent->setTranslation({float(translation[0]), float(translation[1]), float(translation[2])});
+            sceneComponent->setScale({float(scale[0]), float(scale[1]), float(scale[2])});
+            sceneComponent->setRotation({float(xyz[0]), float(xyz[1]), float(xyz[2]), float(rotation.GetReal())});
+        }
         auto componentAttributes = getPrim().GetAttributes();
         for (auto attribute : componentAttributes)
         {

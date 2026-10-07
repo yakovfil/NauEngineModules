@@ -16,6 +16,15 @@
 
 namespace nau::scene
 {
+    // Optional diagnostics for consumers that require checked scene startup.
+    // The ordinary scene manager retains its best-effort activation policy.
+    struct ISceneActivationDiagnostics
+    {
+        NAU_TYPEID(nau::scene::ISceneActivationDiagnostics)
+        virtual ~ISceneActivationDiagnostics() = default;
+        virtual void sceneActivationFailed(Uid world, Error::Ptr error) = 0;
+    };
+
     /**
      * @brief Provides interface for managing scenes and worlds.
      */

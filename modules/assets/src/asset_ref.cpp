@@ -17,6 +17,8 @@ namespace nau
 
     AssetRefBase::AssetRefBase(AssetPath assetPath, bool lazyLoad) noexcept
     {
+        if (const auto* policy = getServiceProvider().find<IAssetReferenceLoadingPolicy>())
+            lazyLoad = lazyLoad || !policy->preloadAssetReferences();
         if (!lazyLoad)
         {
             if (m_assetDescriptor = getServiceProvider().get<IAssetManager>().openAsset(assetPath); m_assetDescriptor)

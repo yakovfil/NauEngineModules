@@ -116,9 +116,9 @@ namespace nau
 
         Json::Value objects{Json::arrayValue};
 
-        const auto writeObjectsToStream = [&]() -> size_t
+        const auto writeObjectsToStream = [&]() -> Result<size_t>
         {
-            serialization::jsonWrite(*contentStream, objects, serialization::JsonSettings{.pretty = prettyWrite}).ignore();
+            NauCheckResult(serialization::jsonWrite(*contentStream, objects, serialization::JsonSettings{.pretty = prettyWrite}));
             objects.clear();
 
             const size_t currentOffset = contentStream->getPosition();
@@ -129,7 +129,7 @@ namespace nau
         for (auto& [uid, object] : visitor.getAllObjects())
         {
             const Json::ArrayIndex arrayIndex = static_cast<Json::ArrayIndex>(objects.size());
-            serialization::runtimeApplyToJsonValue(objects[arrayIndex], makeValueRef(object)).ignore();
+            NauCheckResult(serialization::runtimeApplyToJsonValue(objects[arrayIndex], makeValueRef(object)));
 
             if (object.parentLocalId == 0)
             {
@@ -138,19 +138,29 @@ namespace nau
 
             if (++batchCounter == ObjectsBatchSize)
             {
-                offset = writeObjectsToStream();
+                auto written = writeObjectsToStream();
+                NauCheckResult(written);
+                offset = *written;
                 batchCounter = 0;
             }
         }
 
         if (objects.size() > 0)
         {
-            [[maybe_unused]] const size_t offset = writeObjectsToStream();
+            NauCheckResult(writeObjectsToStream());
         }
 
-        io::writeContainerHeader(stream, "nau-scene", makeValueRef(header));
+        if (!stream)
+            return NauMakeError("Missing scene output stream");
+        auto complete = io::createMemoryStream();
+        io::writeContainerHeader(complete, "nau-scene", makeValueRef(header));
         contentStream->setPosition(OffsetOrigin::Begin, 0);
-        io::copyStream(*stream, contentStream->as<IStreamReader&>()).ignore();
+        NauCheckResult(io::copyStream(*complete, contentStream->as<IStreamReader&>()));
+        const auto bytes = complete->getBufferAsSpan();
+        auto written = stream->write(bytes.data(), bytes.size());
+        NauCheckResult(written);
+        if (*written != bytes.size())
+            return NauMakeError("Short write while compiling scene");
 
         return ResultSuccess;
     }

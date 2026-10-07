@@ -14,8 +14,8 @@ namespace nau
      */
     struct ObjectsBlockInfo
     {
-        size_t offset;
-        size_t size;
+        uint64_t offset;
+        uint64_t size;
 
         NAU_CLASS_FIELDS(
             CLASS_FIELD(offset),

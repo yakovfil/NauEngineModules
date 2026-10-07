@@ -23,6 +23,7 @@ namespace nau::scene
         void setComponentData(const ComponentAsset& componentData) override
         {
             m_componentData.componentTypeId = componentData.componentTypeId;
+            m_componentData.componentTypeName = componentData.componentTypeName;
             m_componentData.uid = componentData.uid;
             m_componentData.transform = componentData.transform;
             m_componentData.properties = serialization::jsonCreateDictionary();

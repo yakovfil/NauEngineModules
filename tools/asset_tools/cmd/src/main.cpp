@@ -36,6 +36,9 @@ namespace nau
         import.add_argument("--files_mask")
             .nargs(argparse::nargs_pattern::any)
             .help("Optional value to scan only specific files");
+        import.add_argument("--modules")
+            .default_value("")
+            .help("Comma-separated host project modules to register before asset compilation");
 
         programArgs.add_subparser(import);
 
@@ -67,6 +70,7 @@ namespace nau
 
                 args->projectPath = import.get<std::string>("--project");
                 args->assetPath = import.get<std::string>("--file");
+                args->projectModules = import.get<std::string>("--modules");
                 args->filesExtensions = import.get<std::vector<std::string>>("--files_mask");
 
                 LOG_INFO("Importing project assets at path {}...", args->projectPath);

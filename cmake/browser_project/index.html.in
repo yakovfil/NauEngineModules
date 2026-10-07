@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>@NAU_BROWSER_APPLICATION@</title>
+<link rel="icon" href="data:,">
+<style>html,body,#nau-window{width:100%;height:100%;margin:0}</style>
+<body><div id="nau-window" aria-label="Application host"></div>
+<script>
+'use strict';
+window.Module = {
+    onAbort(reason) { console.error('Runtime aborted:', reason); },
+    onExit(code) { console.info('Runtime exited:', code, Module.nauRuntime?.status); }
+};
+if (!window.isSecureContext || !window.crossOriginIsolated || !window.SharedArrayBuffer) {
+    console.error('Serve this delivery with the provided COOP/COEP server in a secure context.');
+} else {
+    const loader = document.createElement('script');
+    loader.src = '@NAU_BROWSER_APPLICATION@.js';
+    loader.onerror = () => console.error('Could not fetch the application loader.');
+    document.body.appendChild(loader);
+}
+</script>
+</body></html>

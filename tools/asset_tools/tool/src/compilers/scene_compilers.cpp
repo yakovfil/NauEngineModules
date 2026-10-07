@@ -67,6 +67,8 @@ namespace nau
             auto extraData = reinterpret_cast<ExtraInfoScene*>(metaInfo.extraInfo.get());
 
             auto stageToCompile = pxr::UsdStage::Open(extraData->path);
+            if (!stageToCompile)
+                return NauMakeError("Failed to open scene {}", extraData->path);
 
             NAU_VERIFY(scene, "Failed to create scene");
 
@@ -89,6 +91,8 @@ namespace nau
             std::string output = subPath.string();
 
             io::IStreamWriter::Ptr stream = io::createNativeFileStream(output.c_str(), io::AccessMode::Write, io::OpenFileMode::CreateAlways);
+            if (!stream)
+                return NauMakeError("Failed to open scene output {}", output);
 
             {
                 SceneAsset::Ptr sceneAsset = scene::wrapSceneAsAsset(*scene);
@@ -100,9 +104,12 @@ namespace nau
                 }
 
                 const Result<> writeResult = assetBuilder->writeAssetToStream(stream, sceneAsset);
+                NauCheckResult(writeResult);
             }
 
-            NAU_ASSERT(stream->getPosition() > 0, "Failed to write to stream");
+            if (stream->getPosition() == 0)
+                return NauMakeError("Failed to write scene {}", output);
+            stream->flush();
 
             if (std::filesystem::exists(output))
             {

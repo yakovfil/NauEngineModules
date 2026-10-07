@@ -183,6 +183,8 @@ namespace nau
 
                     LOG_INFO("File {} imported and compiled successfully", assetPath.string());
                 }
+                else
+                    return ErrorCode::internalError;
             }
             else
             {
@@ -196,7 +198,11 @@ namespace nau
 
                         LOG_INFO("File {} imported and compiled successfully", assetPath.string());
                     }
+                    else
+                        return ErrorCode::internalError;
                 }
+                else
+                    return ErrorCode::internalError;
             }
         }
         else
@@ -219,7 +225,8 @@ namespace nau
             // LOG_INFO("Project {} cache updated, {} assets removed", args->projectPath, assetsRemoved);
         }
 
-        dbManager.save();
+        if (!dbManager.save())
+            return ErrorCode::internalError;
 
         return ErrorCode::success;
     }
@@ -474,7 +481,11 @@ namespace nau
         auto metafilePath = file.path + file.extension;
         auto stage = PXR_NS::UsdStage::Open(metafilePath);
 
-        NAU_VERIFY(stage, "Failed to load stage");
+        if (!stage)
+        {
+            LOG_ERROR("Failed to load stage {}", metafilePath);
+            return 0;
+        }
         LOG_INFO("Loading USD stage at path {}", metafilePath);
 
         stage->GetPseudoRoot().Load();
@@ -491,6 +502,11 @@ namespace nau
             {
                 assetsList.push_back(asset);
             }
+        }
+        else
+        {
+            LOG_ERROR("Failed to compile {}: {}", metafilePath, compilationResultMeta.getError()->getDiagMessage());
+            return 0;
         }
 
         return 1;

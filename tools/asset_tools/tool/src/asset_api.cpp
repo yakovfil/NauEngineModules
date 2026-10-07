@@ -12,6 +12,7 @@
 #include "nau/app/platform_window.h"
 #include "nau/app/window_manager.h"
 #include "nau/asset_tools/asset_manager.h"
+#include "nau/assets/asset_db.h"
 #include "nau/io/virtual_file_system.h"
 #include "nau/service/service_provider.h"
 #include "nau/shared/error_codes.h"
@@ -31,12 +32,27 @@ namespace nau
         std::string projectPath = args->projectPath;
 
         if (!applicationExists()) {
-            auto app = createApplication([projectPath]
+            auto app = createApplication([projectPath, args]() -> Result<>
             {
-                loadModulesList(NAU_MODULES_LIST).ignore();
+                NauCheckResult(loadModulesList(NAU_MODULES_LIST));
+                if (!args->projectModules.empty())
+                {
+                    NauCheckResult(loadModulesList(args->projectModules));
+                    const auto database = std::filesystem::path(projectPath) / "assets_database";
+                    std::filesystem::create_directories(database);
+                    auto& vfs = getServiceProvider().get<io::IVirtualFileSystem>();
+                    NauCheckResult(vfs.mount("/content", io::createNativeFileSystem(
+                                                             (std::filesystem::path(projectPath) / "content").string())));
+                    NauCheckResult(vfs.mount("/assets_database", io::createNativeFileSystem(database.string())));
+                    const auto databaseFile = database / "database.db";
+                    if (std::filesystem::exists(databaseFile) && std::filesystem::file_size(databaseFile) != 0)
+                        getServiceProvider().get<IAssetDB>().addAssetDB("/assets_database/database.db");
+                }
                 configureVirtualFileSystem(getServiceProvider().get<io::IVirtualFileSystem>(), projectPath);
                 return nau::ResultSuccess;
             });
+            if (!app)
+                return ErrorCode::internalError;
             NAU_RUN_JOB_WITH_APP(NauImportAssetsJob, "Project successfully scanned at path {}", app);
         }
 

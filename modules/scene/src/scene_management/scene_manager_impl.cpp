@@ -248,7 +248,10 @@ namespace nau::scene
 
             for (IComponentsActivator* componentActivator : componentActivators)
             {
-                componentActivator->activateComponents(worldUid, components).ignore();
+                auto result = componentActivator->activateComponents(worldUid, components);
+                if (!result)
+                    for (auto* diagnostics : getServiceProvider().getAll<ISceneActivationDiagnostics>())
+                        diagnostics->sceneActivationFailed(worldUid, result.getError());
             }
         }
 
@@ -266,7 +269,7 @@ namespace nau::scene
             for (IComponentsAsyncActivator* componentAsyncActivator : componentAsyncActivators)
             {
                 auto barrierTask = activationBarrier.getNextTask().detach();
-                if (auto task = componentAsyncActivator->activateComponentsAsync(worldUid, componentsConstSpan, std::move(barrierTask)); task && !task.isReady())
+                if (auto task = componentAsyncActivator->activateComponentsAsync(worldUid, componentsConstSpan, std::move(barrierTask)); task)
                 {
                     activationTasks.emplace_back(std::move(task));
                 }
@@ -279,7 +282,7 @@ namespace nau::scene
             if (IComponentActivation* componentActivation = component->as<IComponentActivation*>())
             {
                 componentActivation->activateComponent();
-                if (auto task = componentActivation->activateComponentAsync(); task && !task.isReady())
+                if (auto task = componentActivation->activateComponentAsync(); task)
                 {
                     activationTasks.emplace_back(std::move(task));
                 }
@@ -288,6 +291,10 @@ namespace nau::scene
 
         co_await async::whenAll(activationTasks);
         activationBarrier.resolve();
+        for (const auto& task : activationTasks)
+            if (task.isRejected())
+                for (auto* diagnostics : getServiceProvider().getAll<ISceneActivationDiagnostics>())
+                    diagnostics->sceneActivationFailed(worldUid, task.getError());
 
         auto activationFinalizer = [this, components = std::move(components)](bool notifyListener) mutable
         {

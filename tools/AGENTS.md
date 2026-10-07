@@ -84,6 +84,17 @@ solution; generated projects need their SDK/toolchain environment provisioned.
 can target one file with `--file`; omission processes the project's assets.
 Build output must be separate from the source project.
 
+For non-rendering browser startup, use
+[`asset_tools/prepare_browser_project.py`](asset_tools/prepare_browser_project.py)
+and the [browser project integration guide](../cmake/browser_project/README.md).
+It accepts native asset/pack tools and a project registration DLL, prepares a fresh
+scratch copy of the startup dependency closure, validates cooked components and
+packages configuration, mappings and required payloads. Its outputs stay under
+the consumer project's ignored `build/` directory; authored content is unchanged.
+`AssetToolCmd import --modules <absolute-project-module.dll>` registers project
+component factories before cooking. Single-file compilation failures return a
+failing exit code. USD/Python/plugins remain native prerequisites.
+
 ```powershell
 & "$tools/ShaderCompilerTool.exe" -o 'C:/path/to/cache' -s 'C:/path/to/shaders' -m 'C:/path/to/metafiles' -c shader_cache.nsbc
 & "$tools/MaterialCreationTool.exe" -o 'C:/path/to/material.json' -c 'C:/path/to/cache/shader_cache.nsbc' -p Main VertexShader PixelShader

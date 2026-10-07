@@ -76,6 +76,15 @@ namespace nau::assets
 namespace nau
 {
 
+    // Optional consumer policy for restoring references as data without eager
+    // container decoding. Explicit asset view requests retain their behavior.
+    struct IAssetReferenceLoadingPolicy
+    {
+        NAU_TYPEID(nau::IAssetReferenceLoadingPolicy)
+        virtual ~IAssetReferenceLoadingPolicy() = default;
+        virtual bool preloadAssetReferences() const = 0;
+    };
+
     /**
      * @brief Provides asset reference generic functionality.
      */

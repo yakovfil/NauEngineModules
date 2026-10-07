@@ -3,10 +3,12 @@
 
 #include "scene_asset_container.h"
 
+#include <limits>
 #include <optional>
 #include <span>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include <vector>
 
 #include "nau/async/task.h"
@@ -23,6 +25,23 @@
 
 namespace nau
 {
+    static Result<> validateLocalIds(const RuntimeValue::Ptr& value)
+    {
+        if (!value)
+            return NauMakeError("Missing compiled scene local identity");
+        if (auto* collection = value->as<RuntimeReadonlyCollection*>())
+        {
+            for (size_t index = 0; index < collection->getSize(); ++index)
+                NauCheckResult(validateLocalIds(collection->getAt(index)));
+            return ResultSuccess;
+        }
+        auto* integer = value->as<RuntimeIntegerValue*>();
+        if (!integer || (integer->isSigned() && integer->getInt64() < 0) ||
+            integer->getUint64() > std::numeric_limits<unsigned>::max())
+            return NauMakeError("Invalid compiled scene local identity");
+        return ResultSuccess;
+    }
+
     // TODO: check what restrictions there are for the SceneAssetContainer to be also SceneAsset.
     class SceneDefaultAsset final : public SceneAsset
     {
@@ -161,55 +180,89 @@ namespace nau
 
         NAU_FATAL(stream);
 
-        const auto objectsProducer = [](ReadOnlyBuffer buffer) -> Task<ObjectsMap>
-        {
-            co_await Executor::getDefault();
-
-            io::IStreamReader::Ptr stream = io::createReadonlyMemoryStream(std::span{buffer.data(), buffer.size()});
-
-            // TODO: replace by StackVector, when allocators will support proper alignment
-            std::vector<SerializedSceneObject> objects;
-            RuntimeValue::Ptr value = *serialization::jsonParse(stream->as<io::IStreamReader&>());
-            runtimeValueApply(objects, value).ignore();
-
-            ObjectsMap result;
-            for (SerializedSceneObject& object : objects)
-            {
-                [[maybe_unused]] auto [iter, emplaceOk] = result.emplace(object.localId, std::move(object));
-                NAU_ASSERT(emplaceOk);
-            }
-
-            co_return result;
-        };
-
-        auto [headerValue, dataOffset] = *io::readContainerHeader(stream);
+        auto headerResult = io::readContainerHeader(stream);
+        if (!headerResult)
+            co_await Task<>::makeRejected(headerResult.getError());
+        auto [headerValue, dataOffset] = *headerResult;
+        auto* headerDictionary = headerValue ? headerValue->as<RuntimeReadonlyDictionary*>() : nullptr;
+        if (!headerDictionary)
+            co_await Task<>::makeRejected(NauMakeError("Compiled scene header must be an object"));
+        co_await validateLocalIds(headerDictionary->getValue("topLevelObjectIds"));
         SceneHeader header;
-        runtimeValueApply(header, headerValue).ignore();
+        co_await runtimeValueApply(header, headerValue);
+        if ((header.assetKind != SceneAssetKind::Scene && header.assetKind != SceneAssetKind::Prefab) ||
+            header.version != "1.0.0" || header.objectsContentFormat != "application/json" ||
+            header.objects.empty() || header.objects.size() > 4096 || header.topLevelObjectIds.empty())
+            co_await Task<>::makeRejected(NauMakeError("Invalid compiled scene header"));
 
-        Vector<Task<ObjectsMap>> tasks;
-        tasks.reserve(header.objects.size());
-
-        for (const ObjectsBlockInfo& blockInfo : header.objects)
-        {
-            stream->setPosition(io::OffsetOrigin::Begin, blockInfo.offset + dataOffset);
-
-            BytesBuffer buffer{blockInfo.size};
-
-            auto readResult = stream->read(buffer.data(), buffer.size());
-            NAU_ASSERT(readResult);
-            NAU_ASSERT(*readResult == buffer.size());
-
-            tasks.emplace_back(objectsProducer(buffer.toReadOnly()));
-        }
-
-        co_await whenAll(tasks);
-
+        const size_t fileSize = stream->setPosition(io::OffsetOrigin::End, 0);
         ObjectsMap allSceneObjects;
-
-        for (Task<ObjectsMap>& result : tasks)
+        size_t totalBytes = 0;
+        for (const ObjectsBlockInfo& block : header.objects)
         {
-            allSceneObjects.merge(*std::move(result));
+            if (dataOffset > fileSize || block.offset > fileSize - dataOffset ||
+                block.size == 0 || block.size > fileSize - dataOffset - block.offset ||
+                block.size > 64 * 1024 * 1024 - totalBytes)
+                co_await Task<>::makeRejected(NauMakeError("Invalid or truncated compiled scene object block"));
+            totalBytes += block.size;
+            stream->setPosition(io::OffsetOrigin::Begin, dataOffset + block.offset);
+            BytesBuffer buffer{static_cast<size_t>(block.size)};
+            auto read = stream->read(buffer.data(), buffer.size());
+            if (!read || *read != buffer.size())
+                co_await Task<>::makeRejected(NauMakeError("Could not read compiled scene object block"));
+            auto parsed = serialization::jsonParseString(std::string_view(
+                reinterpret_cast<const char*>(buffer.data()), buffer.size()));
+            if (!parsed)
+                co_await Task<>::makeRejected(parsed.getError());
+            auto* records = *parsed ? (*parsed)->as<RuntimeReadonlyCollection*>() : nullptr;
+            if (!records)
+                co_await Task<>::makeRejected(NauMakeError("Compiled scene object block must be an array"));
+            for (size_t index = 0; index < records->getSize(); ++index)
+            {
+                auto record = records->getAt(index);
+                auto* dictionary = record ? record->as<RuntimeReadonlyDictionary*>() : nullptr;
+                if (!dictionary)
+                    co_await Task<>::makeRejected(NauMakeError("Compiled scene object must be an object"));
+                for (const auto* field : {"localId", "parentLocalId", "childLocalIds"})
+                    co_await validateLocalIds(dictionary->getValue(field));
+            }
+            std::vector<SerializedSceneObject> objects;
+            co_await runtimeValueApply(objects, *parsed);
+            if (objects.size() > 100000 - allSceneObjects.size())
+                co_await Task<>::makeRejected(NauMakeError("Compiled scene exceeds object limit"));
+            for (auto& object : objects)
+            {
+                if (object.localId == 0 || object.uid == NullUid ||
+                    !allSceneObjects.emplace(object.localId, std::move(object)).second)
+                    co_await Task<>::makeRejected(NauMakeError("Invalid or duplicate compiled scene object identity"));
+            }
+            co_await Executor::getDefault();
         }
+
+        // Validate the complete tree before recursive visitation can touch it.
+        std::unordered_set<unsigned> visited;
+        std::unordered_set<Uid> identities;
+        size_t sceneRoots = 0;
+        const auto validate = [&](auto&& self, unsigned id, unsigned parent, size_t depth) -> Result<>
+        {
+            auto entry = allSceneObjects.find(id);
+            if (depth > 512 || entry == allSceneObjects.end() || !visited.insert(id).second)
+                return NauMakeError("Invalid compiled scene hierarchy at object {}", id);
+            const auto& object = entry->second;
+            if (object.parentLocalId != parent || !identities.insert(object.uid).second ||
+                object.childCount != object.childLocalIds.size())
+                return NauMakeError("Invalid compiled scene object {}", id);
+            if (object.isSceneRoot && (parent != 0 || ++sceneRoots > 1))
+                return NauMakeError("Invalid compiled scene root {}", id);
+            for (unsigned child : object.childLocalIds)
+                NauCheckResult(self(self, child, id, depth + 1));
+            return ResultSuccess;
+        };
+        for (unsigned id : header.topLevelObjectIds)
+            co_await validate(validate, id, 0, 0);
+        if (visited.size() != allSceneObjects.size() ||
+            (header.assetKind == SceneAssetKind::Scene && sceneRoots != 1))
+            co_await Task<>::makeRejected(NauMakeError("Compiled scene has orphaned objects or no scene root"));
 
         co_return rtti::createInstance<SceneAssetContainer>(std::move(header), std::move(allSceneObjects));
     }

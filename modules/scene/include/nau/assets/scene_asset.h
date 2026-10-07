@@ -59,7 +59,11 @@ namespace nau
         /**
          * @brief Component type id.
          */
-        size_t componentTypeId = 0;
+        uint64_t componentTypeId = 0;
+
+        // Hashes depend on pointer width. Names identify newly cooked components
+        // across native and WebAssembly; the numeric field preserves old assets.
+        std::string componentTypeName;
 
         /**
          * @brief Component identifier.
@@ -78,24 +82,28 @@ namespace nau
 
         NAU_CLASS_FIELDS(
             CLASS_FIELD(componentTypeId),
+            CLASS_FIELD(componentTypeName),
             CLASS_FIELD(uid),
             CLASS_FIELD(transform),
             CLASS_FIELD(properties))
 
         const rtti::TypeInfo getComponentType() const
         {
-            return rtti::makeTypeInfoFromId(componentTypeId);
+            return componentTypeName.empty()
+                       ? rtti::makeTypeInfoFromId(static_cast<size_t>(componentTypeId))
+                       : rtti::makeTypeInfoFromName(componentTypeName.c_str());
         }
 
         template <rtti::WithTypeInfo T>
         void setComponentType()
         {
-            componentTypeId = rtti::getTypeInfo<T>().getHashCode();
+            setComponentType(rtti::getTypeInfo<T>());
         }
 
         void setComponentType(const rtti::TypeInfo& type)
         {
             componentTypeId = type.getHashCode();
+            componentTypeName = type.getTypeName();
         }
     };
 

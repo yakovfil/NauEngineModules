@@ -61,7 +61,7 @@ namespace nau::scene
         // TODO: think what should return (non C++) script component ? (type of Script Component?)
         const rtti::TypeInfo& componentType = component.getClassDescriptor()->getClassTypeInfo();
 
-        componentAsset.componentTypeId = componentType.getHashCode();
+        componentAsset.setComponentType(componentType);
         componentAsset.uid = component.getUid();
         if (const SceneComponent* const sceneComponent = component.as<const SceneComponent*>())
         {

@@ -55,6 +55,7 @@ namespace nau
         std::string projectPath;
         std::string assetPath;
         std::vector<std::string> filesExtensions;
+        std::string projectModules;
     };
 
     struct BuildProjectArguments : public CommonArguments
