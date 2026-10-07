@@ -84,9 +84,9 @@ solution; generated projects need their SDK/toolchain environment provisioned.
 can target one file with `--file`; omission processes the project's assets.
 Build output must be separate from the source project.
 
-For non-rendering browser startup, use
-[`asset_tools/prepare_browser_project.py`](asset_tools/prepare_browser_project.py)
-and the [browser project integration guide](../cmake/browser_project/README.md).
+For shared non-rendering Windows/web startup, use
+[`asset_tools/prepare_packaged_project.py`](asset_tools/prepare_packaged_project.py)
+and the [portable project integration guide](../cmake/packaged_project/README.md).
 It accepts native asset/pack tools and a project registration DLL, prepares a fresh
 scratch copy of the startup dependency closure, validates cooked components and
 packages configuration, mappings and required payloads. Its outputs stay under

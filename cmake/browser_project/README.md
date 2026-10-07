@@ -1,5 +1,7 @@
 # Non-rendering browser projects
 
+For shared Windows/web packaged projects, use the [portable project guide](../packaged_project/README.md). The existing browser hook remains a compatibility entry point and now consumes the portable project declaration.
+
 The reusable profile supplies PlatformApp, CoreAssets, CoreScene, the portable
 CoreSceneFormats reader and NauFrameworkScene. Project code links statically.
 Native SDK binaries, USD, Qt, graphics, physics, animation, audio and input service

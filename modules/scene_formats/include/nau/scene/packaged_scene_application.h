@@ -11,6 +11,7 @@ namespace nau::scene
 {
     struct PackagedSceneOptions
     {
+        // Empty selects content.nau_pack in the platform executable/preload directory.
         std::string archivePath;
         std::string configurationPath = "/config/scene.json";
         std::string databasePath = "/assets_db/database.db";

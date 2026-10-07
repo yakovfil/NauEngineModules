@@ -7,10 +7,12 @@
 #include <unordered_set>
 
 #include "nau/app/application.h"
+#include "nau/app/core_window_manager.h"
 #include "nau/app/global_properties.h"
 #include "nau/assets/asset_db.h"
 #include "nau/assets/asset_ref.h"
 #include "nau/io/asset_pack_file_system.h"
+#include "nau/io/special_paths.h"
 #include "nau/io/virtual_file_system.h"
 #include "nau/rtti/rtti_impl.h"
 #include "nau/scene/checked_scene_startup.h"
@@ -94,8 +96,8 @@ namespace nau::scene
         private:
             Result<> configureApplication() override
             {
-                if (m_options.archivePath.empty() || m_options.supportedComponents.empty())
-                    return NauMakeError("Packaged scene requires an archive and explicit supported component types");
+                if (m_options.supportedComponents.empty())
+                    return NauMakeError("Packaged scene requires explicit supported component types");
                 return ResultSuccess;
             }
 
@@ -113,14 +115,20 @@ namespace nau::scene
 
             void onApplicationInitialized() override
             {
+                if (auto* manager = getServiceProvider().find<ICoreWindowManager>())
+                {
+                    manager->getActiveWindow().setVisible(true);
+                }
             }
 
             async::Task<> startupApplication() override
             {
+                NAU_LOG_INFO("Packaged scene startup");
                 co_await getApplication().getExecutor();
                 if (getApplication().isClosing())
                     co_return;
-                auto filesystem = io::openAssetPackFileSystem(m_options.archivePath.c_str());
+                const auto archive = m_options.archivePath.empty() ? (io::getKnownFolderPath(io::KnownFolder::ExecutableLocation) / "content.nau_pack").string() : m_options.archivePath;
+                auto filesystem = io::openAssetPackFileSystem(archive.c_str());
                 if (!filesystem)
                     co_await async::Task<>::makeRejected(filesystem.getError());
                 auto& vfs = getServiceProvider().get<io::IVirtualFileSystem>();
@@ -189,6 +197,7 @@ namespace nau::scene
                     co_await async::Task<>::makeRejected(error);
                 if (!activated)
                     co_await async::Task<>::makeRejected(NauMakeError("Required startup scene activation failed"));
+                NAU_LOG_INFO("Packaged scene Running");
             }
 
             PackagedSceneOptions m_options;

@@ -1,0 +1,107 @@
+# Portable packaged projects
+
+The `non-rendering-scene` profile builds the same application entry, project
+components and packaged-scene startup on Windows and web. It preserves real
+scene hierarchy, transforms, camera data and passive static-mesh/material
+references, with checked activation, updates and cleanup. Graphics, physics,
+animation playback, audio and input services are excluded.
+
+## Declare the project
+
+Place a versioned `portable_project.json` in the consumer project:
+
+```json
+{
+  "version": 1,
+  "profile": "non-rendering-scene",
+  "modules": ["PlatformApp", "CoreAssets", "CoreScene", "CoreSceneFormats"],
+  "projectModule": "MainGameModule",
+  "startupConfiguration": "/config/scene.json",
+  "supportedComponents": ["nau::scene::SceneComponent", "nau::scene::CameraComponent", "nau::scene::StaticMeshComponent", "MyMover", "MyRotator"]
+}
+```
+
+This declaration supplies CMake module selection, cooking policy and the
+generated `nau_project_policy.h` runtime policy. Unsupported versions/modules,
+empty or duplicate lists, invalid identities and invalid configuration paths
+fail before building. Component classes must still be registered by the compiled
+game module. A declaration does not create factories or enable excluded services.
+
+Handle `NAU_PACKAGED_PROJECT_PROFILE` before the consumer's desktop SDK branch.
+Link its executable to `NauFrameworkScene` and its game module, register the
+declared modules with `nau_target_link_modules`, and call
+`nau_packaged_project_delivery` from `NauPackagedProject.cmake`. Use the generated
+header directory `${CMAKE_BINARY_DIR}/generated` for the shared entry. The
+packaged-scene delegate's empty archive path selects `content.nau_pack` beside
+the native executable or in the browser preload directory. Its internal VFS
+paths are identical on both targets.
+
+## Build interface
+
+The reusable PowerShell driver takes explicit source locations and application
+target identity. Project wrappers may provide checkout-local defaults:
+
+```powershell
+$build = 'C:/src/NauEngineModules/cmake/packaged_project/build.ps1'
+& $build -ProjectDirectory C:/src/MyProject -EngineDirectory C:/src/NauEngineLite `
+  -ModulesDirectory C:/src/NauEngineModules -ApplicationTarget MyApplication `
+  -Platform Windows -Configuration Debug `
+  -HostSdk C:/sdk/nau -HostTools C:/tools/nau/bin/Release `
+  -UsdSdk C:/sdk/openusd -PythonExecutable C:/Python310/python.exe
+```
+
+Normal builds rebuild the host registration DLL and freshly cook a scratch copy
+of authored assets. The registration-only consumer CMake branch currently uses
+`NAU_WEB_HOST_COMPONENTS=ON` for compatibility. Host SDK/tools, OpenUSD and Python
+must match and be provisioned separately. Windows uses VS 2026/v145 and CMake
+4.2+. Web adds Ninja and the recorded Emscripten SDK 6.0.9. Native operations do
+not discover Emscripten. Runtime targets are built statically from engine/modules
+sources, separate from the SDK used for cooking.
+
+Use `-Platform Web` after activating Emscripten. `-Serve [-Port 8000]` serves the
+web package with isolation headers and opens the browser; `-Run` launches the
+Windows package. Host SDK/tool/USD environment overrides remain supported.
+Explicit paths take priority over the known sibling editor/OpenUSD defaults.
+Missing prerequisites fail; the driver never installs SDKs.
+
+## Prepare once and deliver twice
+
+To build either target from an existing prepared snapshot, pass
+`-PreparedArchive C:/packages/content.nau_pack`. This explicit mode validates the
+declaration and archive, skips SDK/USD/cooking-tool discovery and copies the
+selected bytes into the target build's `selected-input` directory. It does not
+claim the snapshot matches current authored sources. Python is still needed for
+archive validation, and target compilers remain prerequisites.
+
+Native delivery copies that archive; browser delivery preloads the identical
+bytes at `/project-package/content.nau_pack`. Asset cooking stays on the host.
+Both deliveries can be relocated outside the checkout. The native delivery
+requires the corresponding MSVC runtime installed on the machine; the browser
+requires a secure context and COOP/COEP headers. Neither runtime needs the
+cooking tools, USD or installed engine SDK.
+
+The driver serializes builds of a project with `build/portable-build.lock` and
+rejects overlapping invocations before changing inputs. The OS releases the
+lock handle when the owning process exits; the lock file may remain. Different
+projects can build independently. Fresh-preparation failure prevents publishing
+or running a stale target. Native delivery uses checked staging/previous
+directories; inspect remnants of a failed publication before deleting them.
+
+## Outputs and compatibility
+
+All generated output stays under the consumer's ignored `build/` directory:
+`portable-host-components`, `prepared-debug`/`prepared-release`,
+`windows-debug`/`windows-release` and `web-debug`/`web-release`. Each target tree
+has its own `selected-input` and `package`; acceptance builds add a separate
+`probe-package`. Prepared content is shared across targets only when explicitly
+selected, so target caches never become host tool inputs.
+
+The former browser hook and preparation command remain forwarding entry points.
+Legacy and generic CMake source/archive variables must agree if both are set.
+The common driver clears legacy cache variables when migrating its own existing
+browser tree. Direct CMake callers use `attach_packaged_project.cmake`,
+`NAU_PACKAGED_PROJECT_SOURCE_DIR`, `NAU_PACKAGED_PROJECT_DECLARATION` and
+`NAU_PACKAGED_PROJECT_ARCHIVE` with `NAU_RUNTIME_PROFILE=scene`.
+
+The rendered desktop SDK route remains a separate consumer selection. This
+profile does not change its launcher, dependencies or asset configuration.
