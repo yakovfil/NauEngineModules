@@ -632,7 +632,8 @@ bool Device::init(DXGIFactory *factory, AdapterInfo &&adapterInfo, D3D_FEATURE_L
   PipelineCache::SetupParameters pipelineCacheSetup;
   pipelineCacheSetup.device = device.get();
   pipelineCacheSetup.allowedModes = cacheModes;
-  pipelineCacheSetup.fileName = CACHE_FILE_NAME;
+  pipelineCacheSetup.fileName = dgs_get_settings()->getBlockByNameEx("dx12")->getBool("persistentPipelineCache", true)
+    ? CACHE_FILE_NAME : nullptr;
   pipelineCacheSetup.deviceVendorID = adapterDesc.VendorId;
   pipelineCacheSetup.deviceID = adapterDesc.DeviceId;
   pipelineCacheSetup.subSystemID = adapterDesc.SubSysId;
@@ -711,7 +712,8 @@ void Device::shutdown(const DeviceCapsAndShaderModel &features)
   adapter->GetDesc2(&adapterDesc);
 
   PipelineCache::ShutdownParameters pipelineCacheSetup;
-  pipelineCacheSetup.fileName = CACHE_FILE_NAME;
+  pipelineCacheSetup.fileName = dgs_get_settings()->getBlockByNameEx("dx12")->getBool("persistentPipelineCache", true)
+    ? CACHE_FILE_NAME : nullptr;
   pipelineCacheSetup.deviceVendorID = adapterDesc.VendorId;
   pipelineCacheSetup.deviceID = adapterDesc.DeviceId;
   pipelineCacheSetup.subSystemID = adapterDesc.SubSysId;

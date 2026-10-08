@@ -115,7 +115,8 @@ void PipelineCache::init(const SetupParameters &params)
 
   library.Reset();
 
-  loadFromFile(params);
+  if (params.fileName)
+    loadFromFile(params);
   if (!library && useLibrary())
   {
     // just report an error but don't abort, library is not essential
@@ -148,6 +149,11 @@ void PipelineCache::shutdown(const ShutdownParameters &params)
       graphicsMeshSignatures.clear();
       //}
   };
+
+  // A portable consumer can use in-memory caching without requiring a
+  // writable working-directory cache. The cleanup guard still releases it.
+  if (!params.fileName)
+    return;
 
   if ((hasChanged || params.alwaysGenerateBlks) && params.generateBlks)
   {

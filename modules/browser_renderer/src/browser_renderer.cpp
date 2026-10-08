@@ -10,7 +10,9 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <set>
 
+#include "nau/render/scene_backend.h"
 #include "nau/scene/scene_object.h"
 #include "nau/service/service_provider.h"
 #include "nau/text/screen_text.h"
@@ -25,6 +27,14 @@ namespace nau
         int width = 0, height = 0, limit = 0;
         unsigned frames = 0;
         bool stopped = false;
+        bool batch = false;
+        struct MeshResource
+        {
+            GLuint vao = 0;
+            GLuint buffers[3] = {};
+            GLsizei count = 0;
+        };
+        std::map<std::string, MeshResource> meshes;
         Error::Ptr failure;
         GLuint textProgram = 0, textVao = 0, textBuffer = 0;
         float textScale = 1;
@@ -48,11 +58,22 @@ namespace nau
 
     Result<> BrowserRenderer::initialize(const CpuMeshView& mesh, std::string_view vertex, std::string_view fragment)
     {
+        if (mesh.positions.empty() || mesh.normals.size() != mesh.positions.size() || mesh.indices.empty())
+            return NauMakeError("Renderer requires validated CPU mesh geometry and normals");
+        return initializeProgram(&mesh, vertex, fragment);
+    }
+
+    Result<> BrowserRenderer::initializeBatch(std::string_view vertex, std::string_view fragment)
+    {
+        return initializeProgram(nullptr, vertex, fragment);
+    }
+
+    Result<> BrowserRenderer::initializeProgram(const CpuMeshView* mesh, std::string_view vertex, std::string_view fragment)
+    {
         auto& state = *m_state;
         if (state.stopped || state.context || emscripten_is_main_browser_thread())
             return NauMakeError("Renderer initialization requires a fresh application-worker owner");
-        if (mesh.positions.empty() || mesh.normals.size() != mesh.positions.size() || mesh.indices.empty())
-            return NauMakeError("Renderer requires validated CPU mesh geometry and normals");
+        state.batch = mesh == nullptr;
         const int canvasReady = MAIN_THREAD_EM_ASM_INT({
             const canvas = document.getElementById('canvas');
             return canvas instanceof HTMLCanvasElement && canvas.isConnected;
@@ -149,23 +170,27 @@ void main() { color=vec4(tint.rgb,tint.a*texture(coverage,texcoord).r); }
         glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), nullptr);
         glEnableVertexAttribArray(1);
         glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), reinterpret_cast<void*>(2 * sizeof(float)));
-        for (const char* name : {"model", "view", "projection"})
+        const std::vector<const char*> required = state.batch ? std::vector<const char*>{"model", "viewProjection", "normalTransform", "baseColor", "lightDirection", "ambient", "directional"} : std::vector<const char*>{"model", "view", "projection"};
+        for (const char* name : required)
             if (glGetUniformLocation(state.program, name) < 0)
                 return NauMakeError("Browser shader missing required uniform {}", name);
-        glGenVertexArrays(1, &state.vao);
-        glBindVertexArray(state.vao);
-        glGenBuffers(3, state.buffers);
-        for (unsigned index = 0; index < 2; ++index)
+        if (mesh)
         {
-            const auto& values = index == 0 ? mesh.positions : mesh.normals;
-            glBindBuffer(GL_ARRAY_BUFFER, state.buffers[index]);
-            glBufferData(GL_ARRAY_BUFFER, values.size() * sizeof(values[0]), values.data(), GL_STATIC_DRAW);
-            glEnableVertexAttribArray(index);
-            glVertexAttribPointer(index, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+            glGenVertexArrays(1, &state.vao);
+            glBindVertexArray(state.vao);
+            glGenBuffers(3, state.buffers);
+            for (unsigned index = 0; index < 2; ++index)
+            {
+                const auto& values = index == 0 ? mesh->positions : mesh->normals;
+                glBindBuffer(GL_ARRAY_BUFFER, state.buffers[index]);
+                glBufferData(GL_ARRAY_BUFFER, values.size() * sizeof(values[0]), values.data(), GL_STATIC_DRAW);
+                glEnableVertexAttribArray(index);
+                glVertexAttribPointer(index, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+            }
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, state.buffers[2]);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->indices.size() * sizeof(uint16_t), mesh->indices.data(), GL_STATIC_DRAW);
+            state.count = static_cast<GLsizei>(mesh->indices.size());
         }
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, state.buffers[2]);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh.indices.size() * sizeof(uint16_t), mesh.indices.data(), GL_STATIC_DRAW);
-        state.count = static_cast<GLsizei>(mesh.indices.size());
         GLint viewport[2] = {};
         glGetIntegerv(GL_MAX_VIEWPORT_DIMS, viewport);
         glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, &state.limit);
@@ -216,6 +241,84 @@ void main() { color=vec4(tint.rgb,tint.a*texture(coverage,texcoord).r); }
             if (w && h && emscripten_set_canvas_element_size("#canvas", w, h) != EMSCRIPTEN_RESULT_SUCCESS)
                 return state.failure = NauMakeError("Canvas drawable resize failed");
         }
+        return {};
+    }
+
+    std::pair<unsigned, unsigned> BrowserRenderer::getDrawableSize() const
+    {
+        return {m_state->width, m_state->height};
+    }
+
+    Result<> BrowserRenderer::drawBatch(const render::SceneFrame& frame)
+    {
+        auto& state = *m_state;
+        if (!state.batch || state.stopped || !state.context || !state.program)
+            return NauMakeError("Browser scene renderer is not ready");
+        NauCheckResult(poll());
+        if (!state.width || !state.height)
+            return {};
+        std::set<std::string> live;
+        for (const auto& draw : frame.draws)
+            live.insert(draw.geometry);
+        for (auto iterator = state.meshes.begin(); iterator != state.meshes.end();)
+        {
+            if (!live.contains(iterator->first))
+            {
+                glDeleteBuffers(3, iterator->second.buffers);
+                glDeleteVertexArrays(1, &iterator->second.vao);
+                iterator = state.meshes.erase(iterator);
+            }
+            else
+                ++iterator;
+        }
+        glViewport(0, 0, state.width, state.height);
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LESS);
+        glDepthMask(GL_TRUE);
+        glDisable(GL_BLEND);
+        glDisable(GL_CULL_FACE);
+        glClearColor(12.f / 255, 16.f / 255, 24.f / 255, 1);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glUseProgram(state.program);
+        glUniformMatrix4fv(glGetUniformLocation(state.program, "viewProjection"), 1, GL_FALSE, frame.viewProjection.data());
+        glUniform3fv(glGetUniformLocation(state.program, "lightDirection"), 1, frame.lightDirection.data());
+        glUniform3fv(glGetUniformLocation(state.program, "ambient"), 1, frame.ambient.data());
+        glUniform3fv(glGetUniformLocation(state.program, "directional"), 1, frame.directional.data());
+        for (const auto& draw : frame.draws)
+        {
+            auto found = state.meshes.find(draw.geometry);
+            if (found == state.meshes.end())
+            {
+                if (!draw.mesh || draw.mesh->positions.empty() || draw.mesh->normals.size() != draw.mesh->positions.size() || draw.mesh->indices.empty())
+                    return state.failure = NauMakeError("Invalid browser scene mesh {}", draw.geometry);
+                auto& resource = state.meshes[draw.geometry];
+                glGenVertexArrays(1, &resource.vao);
+                glBindVertexArray(resource.vao);
+                glGenBuffers(3, resource.buffers);
+                for (unsigned attribute = 0; attribute < 2; ++attribute)
+                {
+                    const auto& values = attribute ? draw.mesh->normals : draw.mesh->positions;
+                    glBindBuffer(GL_ARRAY_BUFFER, resource.buffers[attribute]);
+                    glBufferData(GL_ARRAY_BUFFER, values.size() * sizeof(values[0]), values.data(), GL_STATIC_DRAW);
+                    glEnableVertexAttribArray(attribute);
+                    glVertexAttribPointer(attribute, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+                }
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, resource.buffers[2]);
+                glBufferData(GL_ELEMENT_ARRAY_BUFFER, draw.mesh->indices.size() * sizeof(uint16_t), draw.mesh->indices.data(), GL_STATIC_DRAW);
+                resource.count = draw.mesh->indices.size();
+                if (glGetError() != GL_NO_ERROR)
+                    return state.failure = NauMakeError("Browser scene upload failed: {}", draw.geometry);
+                found = state.meshes.find(draw.geometry);
+            }
+            glUniformMatrix4fv(glGetUniformLocation(state.program, "model"), 1, GL_FALSE, draw.model.data());
+            glUniformMatrix4fv(glGetUniformLocation(state.program, "normalTransform"), 1, GL_FALSE, draw.normals.data());
+            glUniform3fv(glGetUniformLocation(state.program, "baseColor"), 1, draw.color.data());
+            glBindVertexArray(found->second.vao);
+            glDrawElements(GL_TRIANGLES, found->second.count, GL_UNSIGNED_SHORT, nullptr);
+        }
+        if (glGetError() != GL_NO_ERROR || emscripten_webgl_commit_frame() != EMSCRIPTEN_RESULT_SUCCESS)
+            return state.failure = NauMakeError("Browser scene frame submission failed");
+        ++state.frames;
         return {};
     }
 
@@ -378,6 +481,12 @@ void main() { color=vec4(tint.rgb,tint.a*texture(coverage,texcoord).r); }
         {
             if (!emscripten_is_webgl_context_lost(state.context))
             {
+                glFinish();
+                for (const auto& [identity, resource] : state.meshes)
+                {
+                    glDeleteBuffers(3, resource.buffers);
+                    glDeleteVertexArrays(1, &resource.vao);
+                }
                 glDeleteBuffers(3, state.buffers);
                 glDeleteVertexArrays(1, &state.vao);
                 if (state.program)
@@ -397,6 +506,7 @@ void main() { color=vec4(tint.rgb,tint.a*texture(coverage,texcoord).r); }
         }
         const auto releasedTextures = state.textTextures.size();
         state.textTextures.clear();
+        state.meshes.clear();
         MAIN_THREAD_EM_ASM({if(Module.nauRender) Module.nauRender.stopped = true; });
         MAIN_THREAD_EM_ASM({ Module.nauText = ({labels: 0, textures: 0, released: $0, stopped: true}); }, releasedTextures);
         return {};

@@ -36,6 +36,9 @@ if (-not $PythonExecutable) { $PythonExecutable = (Get-Command python -ErrorActi
 $policyJson = & $PythonExecutable (Join-Path $modulesDirectory 'tools/asset_tools/packaged_project.py') --declaration $Declaration
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $policy = $policyJson | ConvertFrom-Json
+if ($policy.profile -eq 'basic-rendering-scene') {
+    $build = Join-Path $buildRoot ($policy.profile + '/' + $Platform.ToLowerInvariant() + '-' + $Configuration.ToLowerInvariant())
+}
 if (-not $PreparedArchive) {
 function Find-LocalDirectory($explicitPath, $candidates, $marker, $description) {
     if ($explicitPath) { $candidates = @($explicitPath) }
@@ -89,6 +92,9 @@ cmake --build $hostBuild --config Release --target $policy.projectModule --paral
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $prepared = Join-Path $projectDirectory ('build/prepared-' + $Configuration.ToLowerInvariant())
+if ($policy.profile -eq 'basic-rendering-scene') {
+    $prepared = Join-Path $buildRoot ($policy.profile + '/prepared-' + $Configuration.ToLowerInvariant())
+}
 $prepareArguments = @(
     (Join-Path $modulesDirectory 'tools/asset_tools/prepare_packaged_project.py'),
     '--project', $projectDirectory, '--output', $prepared,

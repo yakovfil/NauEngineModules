@@ -1,18 +1,62 @@
 """Portable project declaration and prepared archive validation (no USD imports)."""
 import argparse
 import json
+import math
 import pathlib
 import re
 import sys
 
 MODULES = {"PlatformApp", "CoreAssets", "CoreScene", "CoreSceneFormats"}
+RENDERING_PROFILE = "basic-rendering-scene"
+RENDERING_MODULES = MODULES | {"SceneRenderer"}
+
+
+def render_configuration(data):
+    """Validate the target-independent authored rendering policy."""
+    if not isinstance(data, dict) or set(data) - {"materials", "defaultMaterial", "lighting"} or not {"materials", "lighting"} <= set(data):
+        raise ValueError("Invalid rendering settings: expected materials and lighting")
+    materials = data["materials"]
+    if not isinstance(materials, dict):
+        raise ValueError("Rendering materials must map source UUIDs to material paths")
+    for identity, path in materials.items():
+        if not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", identity):
+            raise ValueError(f"Invalid rendering material UUID: {identity}")
+        material_path(path)
+    if "defaultMaterial" in data:
+        material_path(data["defaultMaterial"])
+    lighting = data["lighting"]
+    if not isinstance(lighting, dict) or set(lighting) != {"direction", "ambient", "directional"}:
+        raise ValueError("Invalid rendering lighting fields")
+    for field, values in lighting.items():
+        if not isinstance(values, list) or len(values) != 3 or any(type(value) not in (int, float) or not math.isfinite(value) for value in values):
+            raise ValueError(f"Rendering lighting {field} requires three finite numbers")
+        if field != "direction" and any(value < 0 or value > 1 for value in values):
+            raise ValueError(f"Rendering lighting {field} must be in [0, 1]")
+    if abs(sum(value * value for value in lighting["direction"]) - 1) > 0.001:
+        raise ValueError("Rendering light direction must be normalized")
+    return data
+
+
+def material_path(value):
+    if not isinstance(value, str) or not re.fullmatch(r"materials/[A-Za-z0-9_/-]+\.json", value) or any(part in ("", ".", "..") for part in value.split("/")):
+        raise ValueError(f"Invalid portable material path: {value}")
+    return value
+
+
+def simple_material(data):
+    if not isinstance(data, dict) or set(data) != {"version", "baseColor"} or type(data["version"]) is not int or data["version"] != 1:
+        raise ValueError("Unsupported portable material fields or version")
+    color = data["baseColor"]
+    if not isinstance(color, list) or len(color) != 3 or any(type(value) not in (int, float) or not math.isfinite(value) or value < 0 or value > 1 for value in color):
+        raise ValueError("Portable material baseColor requires three finite linear values in [0, 1]")
+    return data
 
 
 def declaration(path):
     data = json.loads(pathlib.Path(path).read_text(encoding="utf-8-sig"))
     if not isinstance(data, dict) or type(data.get("version")) is not int or data["version"] != 1:
         raise ValueError("Unsupported portable project declaration version")
-    if data.get("profile") != "non-rendering-scene":
+    if data.get("profile") not in ("non-rendering-scene", RENDERING_PROFILE):
         raise ValueError("Unsupported portable project profile")
     for field in ("modules", "supportedComponents"):
         values = data.get(field)
@@ -20,12 +64,17 @@ def declaration(path):
             raise ValueError(f"Invalid portable declaration {field}")
         if len(set(values)) != len(values):
             raise ValueError(f"Duplicate portable declaration {field}")
-    if set(data["modules"]) != MODULES:
+    required = RENDERING_MODULES if data["profile"] == RENDERING_PROFILE else MODULES
+    if set(data["modules"]) != required:
         raise ValueError(f"Unsupported or missing portable modules: {data['modules']}")
     if not isinstance(data.get("projectModule"), str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", data["projectModule"]):
         raise ValueError("Invalid portable project module")
     if not isinstance(data.get("startupConfiguration"), str) or not re.fullmatch(r"/config/[A-Za-z0-9_-]+\.json", data["startupConfiguration"]):
         raise ValueError("Invalid portable startup configuration")
+    if data["profile"] == RENDERING_PROFILE:
+        render_configuration(data.get("rendering"))
+    elif "rendering" in data:
+        raise ValueError("Rendering settings require the basic-rendering-scene profile")
     return data
 
 
@@ -65,6 +114,29 @@ def validate_archive(path, policy):
     for name in (policy["startupConfiguration"].lstrip("/"), "config/app.json", "assets_db/database.db"):
         if not isinstance(json.loads(files[name]), dict):
             raise ValueError(f"Invalid prepared JSON: {name}")
+    if policy["profile"] == RENDERING_PROFILE:
+        from portable_render_assets import normalize_mesh
+        settings = render_configuration(json.loads(files["config/rendering.json"]))
+        if settings != policy["rendering"]:
+            raise ValueError("Prepared rendering settings do not match the declaration")
+        for name in set(settings["materials"].values()) | ({settings["defaultMaterial"]} if "defaultMaterial" in settings else set()):
+            simple_material(json.loads(files[name]))
+        database = json.loads(files["assets_db/database.db"])
+        for entry in database.get("content", []):
+            if not entry["dbPath"].endswith(".gltf"):
+                continue
+            name = "assets_db/" + entry["dbPath"]
+            model = json.loads(files[name])
+            buffers = model.get("buffers", [])
+            if len(buffers) != 1:
+                raise ValueError(f"Invalid prepared geometry buffers: {name}")
+            uri = buffers[0].get("uri", "")
+            if not isinstance(uri, str) or not re.fullmatch(r"[A-Za-z0-9_.-]+", uri) or uri in (".", ".."):
+                raise ValueError(f"Invalid prepared geometry buffer URI: {name}")
+            binary = str(pathlib.PurePosixPath(name).parent / uri)
+            if model["accessors"][model["meshes"][0]["primitives"][0]["indices"]]["componentType"] != 5123:
+                raise ValueError(f"Prepared geometry requires uint16 indices: {name}")
+            normalize_mesh(model, files[binary])
 
 
 if __name__ == "__main__":

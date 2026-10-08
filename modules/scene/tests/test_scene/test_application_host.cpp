@@ -5,6 +5,7 @@
 #include "nau/app/application.h"
 #include "nau/app/run_application.h"
 #include "nau/scene/components/component_life_cycle.h"
+#include "nau/scene/internal/scene_manager_internal.h"
 #include "nau/scene/scene_factory.h"
 #include "nau/scene/scene_manager.h"
 #include "nau/service/service_provider.h"
@@ -16,6 +17,9 @@ namespace nau::test
         std::vector<int> order;
         int steps = 0;
         bool destroyed = false;
+        bool pendingUpdate = false;
+        async::TaskSource<> release;
+        int asyncCompletions = 0;
     };
     class PhaseComponent final : public scene::SceneComponent,
                                  public scene::IComponentUpdate
@@ -31,6 +35,22 @@ namespace nau::test
         }
     };
     NAU_IMPLEMENT_DYNAMIC_OBJECT(PhaseComponent)
+    class SnapshotComponent final : public scene::SceneComponent,
+                                    public scene::IComponentAsyncUpdate
+    {
+        NAU_OBJECT(SnapshotComponent, scene::SceneComponent, scene::IComponentAsyncUpdate)
+        NAU_DECLARE_DYNAMIC_OBJECT
+    public:
+        PhaseState* state = nullptr;
+        async::Task<> updateComponentAsync(float) override
+        {
+            if (state->asyncCompletions)
+                co_return;
+            co_await state->release.getTask();
+            ++state->asyncCompletions;
+        }
+    };
+    NAU_IMPLEMENT_DYNAMIC_OBJECT(SnapshotComponent)
     class SceneDelegate final : public ApplicationDelegate
     {
     public:
@@ -53,6 +73,7 @@ namespace nau::test
         Result<> initializeServices() override
         {
             getServiceProvider().addClass<PhaseComponent>();
+            getServiceProvider().addClass<SnapshotComponent>();
             return {};
         }
         void onApplicationInitialized() override
@@ -64,6 +85,11 @@ namespace nau::test
             auto scene = factory.createEmptyScene();
             auto& object = scene->getRoot().attachChild(factory.createSceneObject<PhaseComponent>());
             object.getRootComponent<PhaseComponent>().state = &m_state;
+            if (m_state.pendingUpdate)
+            {
+                auto& pending = scene->getRoot().attachChild(factory.createSceneObject<SnapshotComponent>());
+                pending.getRootComponent<SnapshotComponent>().state = &m_state;
+            }
             m_object = object;
             co_await getServiceProvider().get<scene::ISceneManager>().activateScene(std::move(scene));
         }
@@ -75,6 +101,20 @@ namespace nau::test
         void onApplicationPostUpdate(std::chrono::milliseconds) override
         {
             m_state.order.push_back(3);
+            if (m_state.pendingUpdate)
+            {
+                auto& internal = getServiceProvider().get<scene::ISceneManagerInternal>();
+                if (m_state.steps == 1)
+                {
+                    EXPECT_FALSE(internal.isSceneSnapshotReady());
+                    m_state.release.resolve();
+                }
+                else
+                {
+                    EXPECT_TRUE(internal.isSceneSnapshotReady());
+                    EXPECT_EQ(m_state.asyncCompletions, 1);
+                }
+            }
             if (m_state.steps == 3)
                 getApplication().stop();
         }
@@ -88,6 +128,14 @@ namespace nau::test
         PhaseState state;
         EXPECT_EQ(runApplication(std::make_unique<SceneDelegate>(state)), 0);
         EXPECT_EQ(state.order, (std::vector<int>{1, 2, 3, 1, 2, 3, 1, 2, 3}));
+        EXPECT_TRUE(state.destroyed);
+    }
+    TEST(ApplicationHostScene, SnapshotWaitsForOutstandingComponentUpdate)
+    {
+        PhaseState state;
+        state.pendingUpdate = true;
+        EXPECT_EQ(runApplication(std::make_unique<SceneDelegate>(state)), 0);
+        EXPECT_EQ(state.asyncCompletions, 1);
         EXPECT_TRUE(state.destroyed);
     }
 }  // namespace nau::test

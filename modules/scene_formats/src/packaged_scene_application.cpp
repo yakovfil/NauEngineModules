@@ -16,6 +16,7 @@
 #include "nau/io/virtual_file_system.h"
 #include "nau/rtti/rtti_impl.h"
 #include "nau/scene/checked_scene_startup.h"
+#include "nau/scene/packaged_scene_presenter.h"
 #include "nau/scene/scene_manager.h"
 #include "nau/serialization/json.h"
 #include "nau/service/service_provider.h"
@@ -98,6 +99,10 @@ namespace nau::scene
             {
                 if (m_options.supportedComponents.empty())
                     return NauMakeError("Packaged scene requires explicit supported component types");
+                if (m_options.runtimeProfile != "non-rendering-scene" && m_options.runtimeProfile != "basic-rendering-scene")
+                    return NauMakeError("Unsupported packaged scene runtime profile {}", m_options.runtimeProfile);
+                if (m_options.runtimeProfile == "basic-rendering-scene" && m_options.renderingConfiguration.empty())
+                    return NauMakeError("Rendering profile requires an explicit rendering policy");
                 return ResultSuccess;
             }
 
@@ -139,7 +144,7 @@ namespace nau::scene
                     co_await async::Task<>::makeRejected(inputsJson.getError());
                 PackageInputs inputs;
                 co_await runtimeValueApply(inputs, *inputsJson);
-                if (inputs.profile != "non-rendering-scene" || inputs.requiredFiles.empty())
+                if (inputs.profile != m_options.runtimeProfile || inputs.requiredFiles.empty())
                     co_await async::Task<>::makeRejected(NauMakeError("Invalid required asset manifest /config/assets.json"));
                 for (const auto& path : inputs.requiredFiles)
                 {
@@ -197,7 +202,24 @@ namespace nau::scene
                     co_await async::Task<>::makeRejected(error);
                 if (!activated)
                     co_await async::Task<>::makeRejected(NauMakeError("Required startup scene activation failed"));
+                if (m_options.runtimeProfile == "basic-rendering-scene" && !getApplication().isClosing())
+                {
+                    auto* presenter = getServiceProvider().find<IPackagedScenePresenter>();
+                    if (!presenter) co_await async::Task<>::makeRejected(NauMakeError("Required SceneRenderer service is unavailable"));
+                    co_await presenter->preparePresentation(m_options.renderingConfiguration);
+                }
+                if (getApplication().isClosing()) co_return;
                 NAU_LOG_INFO("Packaged scene Running");
+            }
+
+            void onApplicationPostUpdate(std::chrono::milliseconds) override
+            {
+                if (m_options.runtimeProfile != "basic-rendering-scene" || getApplication().isClosing()) return;
+                if (auto* presenter = getServiceProvider().find<IPackagedScenePresenter>())
+                {
+                    auto result = presenter->presentFrame();
+                    if (!result) getApplication().stop();
+                }
             }
 
             PackagedSceneOptions m_options;

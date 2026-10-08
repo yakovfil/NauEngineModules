@@ -832,7 +832,28 @@ namespace nau::scene
         return component != m_activeComponents.end() ? component->second : nullptr;
     }
 
+    bool SceneManagerImpl::isSceneSnapshotReady() const
+    {
+        if (m_insideUpdate)
+        {
+            return false;
+        }
+        for (const auto& entry : m_updatableComponents)
+        {
+            if (entry.asyncUpdateTask && !entry.asyncUpdateTask.isReady())
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
     void SceneManagerImpl::pollShutdown()
+    {
+        pollSceneWork();
+    }
+
+    void SceneManagerImpl::pollSceneWork()
     {
         using namespace nau::async;
         NAU_ASSERT(!m_insideUpdate);

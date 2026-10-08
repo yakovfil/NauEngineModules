@@ -1,6 +1,10 @@
 # Loaded before NauEngine constructs its target graph.
 foreach(suffix SOURCE_DIR ARCHIVE)
   if(NAU_BROWSER_PROJECT_${suffix})
+    cmake_path(CONVERT "${NAU_BROWSER_PROJECT_${suffix}}" TO_CMAKE_PATH_LIST NAU_BROWSER_PROJECT_${suffix} NORMALIZE)
+    if(NAU_PACKAGED_PROJECT_${suffix})
+      cmake_path(CONVERT "${NAU_PACKAGED_PROJECT_${suffix}}" TO_CMAKE_PATH_LIST NAU_PACKAGED_PROJECT_${suffix} NORMALIZE)
+    endif()
     if(NAU_PACKAGED_PROJECT_${suffix} AND NOT NAU_PACKAGED_PROJECT_${suffix} STREQUAL NAU_BROWSER_PROJECT_${suffix})
       message(FATAL_ERROR "Conflicting NAU_PACKAGED_PROJECT_${suffix} and NAU_BROWSER_PROJECT_${suffix}")
     endif()

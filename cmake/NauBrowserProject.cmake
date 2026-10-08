@@ -23,6 +23,14 @@ function(nau_browser_project_delivery target)
     "SHELL:--preload-file ${NAU_BROWSER_PROJECT_ARCHIVE}@/project-package/content.nau_pack")
   set_property(TARGET ${target} APPEND PROPERTY LINK_DEPENDS "${NAU_BROWSER_PROJECT_ARCHIVE}")
   set(NAU_BROWSER_APPLICATION "${target}")
+  set(NAU_BROWSER_PROJECT_CANVAS "")
+  set(NAU_BROWSER_PROJECT_CANVAS_CONFIGURATION "")
+  if(NAU_PACKAGED_PROJECT_RUNTIME_PROFILE STREQUAL "basic-rendering-scene")
+    target_link_options(${target} PRIVATE -sOFFSCREENCANVAS_SUPPORT=1
+      "-sOFFSCREENCANVASES_TO_PTHREAD=#canvas" -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2)
+    set(NAU_BROWSER_PROJECT_CANVAS "<canvas id=\"canvas\" aria-label=\"Nau scene\"></canvas>")
+    set(NAU_BROWSER_PROJECT_CANVAS_CONFIGURATION "canvas: document.getElementById('canvas'),")
+  endif()
   configure_file("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/browser_project/index.html.in"
     "${CMAKE_CURRENT_BINARY_DIR}/web/${target}/index.html" @ONLY)
   add_custom_target(${target}WebPackage ALL

@@ -77,7 +77,10 @@ integration uses full fresh preparation for reliable invalidation.
 
 ## Serve and validate
 
-The staged `serve.py` supplies COOP/COEP headers for installed Chrome. Serve HTTP
+The staged `serve.py` supplies COOP/COEP headers for installed Chrome. It disables
+browser caching and timestamp-based responses so switching build profiles at the
+same URL cannot reuse another delivery's HTML or loader. Restart an already
+running server after updating it. Serve HTTP
 in a secure context; do not launch via file URLs. The complete directory is
 relocatable, including nested URLs. Inspect `Module.nauRuntime.status` and request
 asynchronous Stop with `Module.nauRuntime.stop()`.

@@ -38,7 +38,7 @@ parser.add_argument('--build',type=pathlib.Path,required=True)
 parser.add_argument('--scenario',default='success')
 parser.add_argument('--configuration',default='Debug')
 a=parser.parse_args();build=a.build.resolve();scenario=a.scenario
-expected_failure=scenario in ('immediate','deferred','shutdownerror','configfail','setupfail','stall')
+expected_failure=scenario in ('immediate','deferred','shutdownerror','configfail','setupfail','stall','runtime-error','runtime-startup-error','runtime-cleanup-error')
 result={'scenario':scenario,'passed':False};logs=[]
 try:
     if (build/'bin/NauCommonHostTests.js').exists():
@@ -64,7 +64,7 @@ try:
                     terminal=page.evaluate('window.result');result.update(terminal)
                     assert terminal['status']['cleanupComplete'],terminal
                     assert terminal['status']['state']==('Failed' if expected_failure else 'Stopped'),terminal
-                    if scenario in ('immediate','deferred','stopstartup','stall'):
+                    if scenario in ('immediate','deferred','stopstartup','stall','runtime-startup-error'):
                         assert all(s['state']!='Running' and s['completedSteps']==0 for s in terminal['history']),terminal
                     assert terminal['beats']>0
         finally:server.shutdown();server.server_close()
@@ -76,7 +76,8 @@ try:
         result['stats']=json.loads(row.removeprefix('HOST_RESULT '))
     assert (result['code']!=0)==expected_failure,result
     stats=result['stats'];assert stats['valid'],stats
-    if scenario in ('immediate','deferred','stopstartup','stall','configfail','setupfail'):assert stats['pre']==stats['post']==0,stats
+    if scenario in ('immediate','deferred','stopstartup','stall','configfail','setupfail','runtime-startup-error'):assert stats['pre']==stats['post']==0,stats
+    elif scenario=='runtime-error':assert stats['pre']==stats['post']==2,stats
     elif scenario=='stoppre':assert stats['pre']==1 and stats['post']==0,stats
     else:assert stats['pre']==stats['post'] and stats['post']>=4,stats
     assert stats['legacy']==(stats['post'] if scenario=='legacy' else 0),stats

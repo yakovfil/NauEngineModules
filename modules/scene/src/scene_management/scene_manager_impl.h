@@ -67,6 +67,9 @@ namespace nau::scene
 
         void pollShutdown() override;
 
+        bool isSceneSnapshotReady() const override;
+        void pollSceneWork() override;
+
         void notifyListenerComponentWasChanged(const Component& component);
 
     private:

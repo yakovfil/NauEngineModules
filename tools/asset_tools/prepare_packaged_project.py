@@ -1,5 +1,6 @@
 """Prepare the non-rendering startup asset closure with native USD/asset tools."""
 import argparse
+from collections import Counter
 import json
 import math
 import pathlib
@@ -7,7 +8,8 @@ import shutil
 import subprocess
 import sys
 import uuid
-from packaged_project import declaration
+from packaged_project import declaration, RENDERING_PROFILE, simple_material
+from portable_render_assets import normalize_mesh
 
 
 def contained(root, path):
@@ -114,10 +116,35 @@ def prepare(args):
 
     for metadata in sorted(mesh_metadata):
         compile_asset(metadata)
+    database_file = scratch / "assets_database/database.db"
+    if policy and policy["profile"] == RENDERING_PROFILE:
+        # AssetRef serialization cannot preserve a material UID unless the host
+        # resolver knows it while the scene is translated. Register passive
+        # metadata before cooking the scene, not only before packaging.
+        initial_database = json.loads(database_file.read_text()) if database_file.exists() else {"content": []}
+        initial_entries = initial_database.setdefault("content", [])
+        for source in sorted(passive - mesh_metadata):
+            if source.suffix != ".nausd":
+                continue
+            stage = Usd.Stage.Open(str(source))
+            for prim in stage.Traverse():
+                uid_attribute = prim.GetAttribute("uid")
+                if not uid_attribute or not uid_attribute.Get():
+                    continue
+                identity = str(uuid.UUID(uid_attribute.Get()))
+                if any(entry["uid"] == identity for entry in initial_entries):
+                    continue
+                relative = source.relative_to(content).as_posix()
+                payload = f"passive/{identity}.nausd"
+                output = scratch / "assets_database" / payload
+                output.parent.mkdir(exist_ok=True)
+                shutil.copy2(source, output)
+                initial_entries.append(dict(uid=identity, dbPath=payload, kind="PassiveData",
+                                            sourceType="nausd", sourcePath=relative[:-6], nausdPath=relative))
+        database_file.write_text(json.dumps(initial_database))
     for scene in scenes:
         compile_asset(pathlib.Path(str(scene) + ".nausd"))
 
-    database_file = scratch / "assets_database/database.db"
     database = json.loads(database_file.read_text())
     entries = database.get("content", [])
     if not entries:
@@ -150,6 +177,20 @@ def prepare(args):
         if entry["dbPath"].endswith(".gltf"):
             model_file = scratch / "assets_database" / entry["dbPath"]
             model = json.loads(model_file.read_text())
+            if policy and policy["profile"] == RENDERING_PROFILE:
+                buffers = model.get("buffers", [])
+                if len(buffers) != 1:
+                    raise RuntimeError(f"Unsupported geometry buffers: {entry['uid']}")
+                uri = buffers[0].get("uri", "")
+                if not isinstance(uri, str) or not uri or any(character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-" for character in uri) or uri in (".", ".."):
+                    raise RuntimeError(f"Invalid geometry buffer URI: {entry['uid']}")
+                buffer_file = contained((scratch / "assets_database").resolve(), model_file.parent / uri)
+                try:
+                    model, payload = normalize_mesh(model, buffer_file.read_bytes())
+                except (ValueError, KeyError, TypeError, OverflowError) as error:
+                    raise RuntimeError(f"Unsupported geometry {entry['uid']} ({model_file}): {error}") from error
+                model_file.write_text(json.dumps(model))
+                buffer_file.write_bytes(payload)
             for dependency in model.get("buffers", []) + model.get("images", []):
                 uri = dependency.get("uri", "")
                 if uri and not uri.startswith("data:"):
@@ -174,6 +215,7 @@ def prepare(args):
             start = offset + length + block["offset"]
             objects.extend(json.loads(data[start:start + block["size"]]))
         components = [component for obj in objects for component in [obj["rootComponent"]] + obj["additionalComponents"]]
+        expected_materials = Counter()
         for prim in stage.Traverse():
             type_attribute = prim.GetAttribute("componentTypeName")
             if type_attribute:
@@ -194,10 +236,42 @@ def prepare(args):
                 identity = prim.GetAttribute("uid").Get()
                 if not any(str(item["properties"].get("geometry", "")).startswith("uid:" + identity) for item in components):
                     raise RuntimeError(f"Native compiler lost required mesh reference {identity} on {prim.GetPath()}")
+                if policy and policy["profile"] == RENDERING_PROFILE:
+                    binding = prim.GetAttribute("Material:assign")
+                    material_asset = binding.Get() if binding else None
+                    if material_asset and material_asset.path:
+                        material_source = contained(content, pathlib.Path(Sdf.ComputeAssetPathRelativeToLayer(binding.GetPropertyStack()[0].layer, material_asset.path)))
+                        material_stage = Usd.Stage.Open(str(material_source))
+                        identities = [str(uuid.UUID(value.Get())) for item in material_stage.Traverse() if (value := item.GetAttribute("uid")) and value.Get()]
+                        if len(identities) != 1 or identities[0] not in policy["rendering"]["materials"]:
+                            raise RuntimeError(f"Missing or ambiguous portable material mapping on {prim.GetPath()}")
+                        expected_materials["uid:" + identities[0]] += 1
+        if policy and policy["profile"] == RENDERING_PROFILE:
+            actual_materials = Counter(str(item["properties"].get("material", "")) for item in components if item.get("componentTypeName") == "nau::scene::StaticMeshComponent" and item["properties"].get("material"))
+            if expected_materials != actual_materials:
+                raise RuntimeError(f"Native compiler changed required material references in {source}: {expected_materials} -> {actual_materials}")
+            for item in components:
+                if item.get("componentTypeName") == "nau::scene::StaticMeshComponent" and not item["properties"].get("material") and "defaultMaterial" not in policy["rendering"]:
+                    raise RuntimeError(f"Missing explicit default material for component {item['uid']} in {source}")
     database_file.write_text(json.dumps(database, indent=2))
 
     packaged_config = scratch / "config"
     packaged_config.mkdir()
+    material_files = []
+    if policy and policy["profile"] == RENDERING_PROFILE:
+        settings = policy["rendering"]
+        for relative in sorted(set(settings["materials"].values()) | ({settings["defaultMaterial"]} if "defaultMaterial" in settings else set())):
+            source = contained(content, content / relative)
+            try:
+                material = simple_material(json.loads(source.read_text()))
+            except (ValueError, KeyError, TypeError) as error:
+                raise RuntimeError(f"Invalid portable material {relative}: {error}") from error
+            target = scratch / "portable_materials" / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(json.dumps(material))
+            material_files.append(dict(source=str(target), path=relative))
+            seen.add(source)
+        (packaged_config / "rendering.json").write_text(json.dumps(settings))
     application = json.loads((project / "config/app.json").read_text())
     application.get("app", {}).pop("log", None)
     (packaged_config / "app.json").write_text(json.dumps(application))
@@ -207,7 +281,7 @@ def prepare(args):
         (packaged_config / (name + ".json")).write_text(json.dumps(
             {"scene": {"startupScene": prefix + scene.relative_to(content).as_posix()}}))
 
-    files = []
+    files = material_files.copy()
     for directory, archive_root in ((packaged_config, "config"), (scratch / "assets_database", "assets_db")):
         for file in sorted(directory.rglob("*")):
             if file.is_file():
@@ -217,10 +291,10 @@ def prepare(args):
         if file.suffix != ".nausd":
             files.append(dict(source=str(file), path="content/" + file.relative_to(content).as_posix()))
     required_manifest = packaged_config / "assets.json"
-    required_manifest.write_text(json.dumps({"profile": "non-rendering-scene", "requiredFiles": [file["path"] for file in files]}, indent=2))
+    required_manifest.write_text(json.dumps({"profile": policy["profile"] if policy else "non-rendering-scene", "requiredFiles": [file["path"] for file in files]}, indent=2))
     files.append(dict(source=str(required_manifest), path="config/assets.json"))
     manifest = scratch / "manifest.json"
-    manifest.write_text(json.dumps({"description": "Non-rendering editor project startup", "files": files}, indent=2))
+    manifest.write_text(json.dumps({"description": "Packaged editor project startup", "files": files}, indent=2))
     archive = scratch / "content.nau_pack"
     subprocess.run([str(args.pack_tool.resolve()), "--manifest", str(manifest), "--output", str(archive)], check=True)
     # Publish only after every native operation succeeds.

@@ -8,6 +8,37 @@ animation playback, audio and input services are excluded.
 
 ## Declare the project
 
+### Basic scene rendering
+
+The optional `basic-rendering-scene` profile adds `SceneRenderer` to the logical
+module list. Supply a `rendering` object containing `materials` (source material
+UUID to `materials/*.json` path), optional `defaultMaterial`, and `lighting`
+with `direction`, `ambient` and `directional` three-number arrays. Direction
+points toward the light and must have unit length; RGB values are finite within
+`[0,1]`. Material records contain exactly `{"version":1,"baseColor":[r,g,b]}`
+in linear RGB. Both backends apply diffuse/ambient lighting and the same sRGB
+display conversion. Missing mappings fail unless an explicitly selected default
+applies to an unbound mesh.
+
+Preparation accepts static indexed triangle meshes with float positions/normals,
+one primitive and external buffer per geometry; supported cooked layouts are
+normalized to uint16 indices while preserving asset identities. Hierarchy and
+component transforms remain scene data. Skinning, unsupported topology/material
+features, malformed ranges and reflected/singular transforms are rejected.
+
+Select the declaration with `-Declaration`. Rendering outputs use isolated
+`build/basic-rendering-scene/<platform>-<configuration>` paths. One prepared
+archive is usable byte-identically by both targets through `-PreparedArchive`.
+Native builds require Windows SDK DXC shader tools (or the CMake
+`NAU_DXC_EXECUTABLE` override); browser builds embed GLSL without native shader
+tool dependencies. Shader bytes are target implementation resources, separate
+from the project archive. The native adapter uses the existing DX12 Render
+driver; this profile does not enable full Graphics, physics, animation or audio.
+
+Initial presentation gates Running. Zero drawable size suspends submissions.
+Stop settles accepted work and releases graphics resources before window teardown.
+Device/context loss is terminal and requires restarting the application/page.
+
 Place a versioned `portable_project.json` in the consumer project:
 
 ```json

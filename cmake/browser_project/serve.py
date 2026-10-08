@@ -7,7 +7,16 @@ import webbrowser
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
+    def send_head(self):
+        # Different build profiles share this URL and preserve source timestamps.
+        # A newer cached file can belong to a different delivery, so always send
+        # the selected package instead of accepting timestamp-based validation.
+        if "If-Modified-Since" in self.headers:
+            del self.headers["If-Modified-Since"]
+        return super().send_head()
+
     def end_headers(self):
+        self.send_header("Cache-Control", "no-store")
         self.send_header("Cross-Origin-Opener-Policy", "same-origin")
         self.send_header("Cross-Origin-Embedder-Policy", "require-corp")
         super().end_headers()

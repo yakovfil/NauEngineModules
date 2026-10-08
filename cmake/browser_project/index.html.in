@@ -4,11 +4,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>@NAU_BROWSER_APPLICATION@</title>
 <link rel="icon" href="data:,">
-<style>html,body,#nau-window{width:100%;height:100%;margin:0}</style>
-<body><div id="nau-window" aria-label="Application host"></div>
+<style>html,body,#nau-window,#canvas{width:100%;height:100%;margin:0}#canvas{display:block;position:absolute;inset:0}</style>
+<body><div id="nau-window" aria-label="Application host">@NAU_BROWSER_PROJECT_CANVAS@</div>
 <script>
 'use strict';
 window.Module = {
+    @NAU_BROWSER_PROJECT_CANVAS_CONFIGURATION@
     onAbort(reason) { console.error('Runtime aborted:', reason); },
     onExit(code) { console.info('Runtime exited:', code, Module.nauRuntime?.status); }
 };

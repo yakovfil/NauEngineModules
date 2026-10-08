@@ -50,6 +50,13 @@ namespace nau::scene
         // Resume outstanding scene work without beginning a new component update.
         virtual void pollShutdown() = 0;
 
+        // Owner-thread snapshot consumers must defer capture while component
+        // updates are outstanding, even after update() has returned.
+        virtual bool isSceneSnapshotReady() const = 0;
+
+        // Resume accepted scene continuations without starting another update.
+        virtual void pollSceneWork() = 0;
+
         virtual SceneListenerRegistration addSceneListener(ISceneListener&) = 0;
     };
 

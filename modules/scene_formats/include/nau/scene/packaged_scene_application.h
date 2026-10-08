@@ -16,6 +16,8 @@ namespace nau::scene
         std::string configurationPath = "/config/scene.json";
         std::string databasePath = "/assets_db/database.db";
         std::vector<std::string> supportedComponents;
+        std::string runtimeProfile = "non-rendering-scene";
+        std::string renderingConfiguration;
     };
 
     ApplicationDelegate::Ptr createPackagedSceneApplication(PackagedSceneOptions options);

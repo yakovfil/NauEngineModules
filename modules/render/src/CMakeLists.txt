@@ -1,6 +1,24 @@
 
 set(TargetName Render)
 
+if(NAU_PACKAGED_PROJECT_RUNTIME_PROFILE STREQUAL "basic-rendering-scene")
+  # The driver uses kernel DataBlock and legacy file IO for configuration and
+  # pipeline caches. Keep this addition local to the native rendering profile.
+  set(kernelSources "${NAU_ENGINE_SOURCE_DIR}/engine/core/kernel/src")
+  file(GLOB renderKernelSources CONFIGURE_DEPENDS "${kernelSources}/dataBlock/*.cpp")
+  foreach(source IN ITEMS
+      dag_ioSys/baseIo.cpp dag_ioSys/memIo.cpp dag_ioSys/chainedMemIo.cpp
+      dag_ioSys/fileIo.cpp dag_ioSys/zstdIo.cpp dag_ioSys/zstdIoFatal.cpp
+      dag_ioSys/zlibIo.cpp dag_ioSys/zlibIoFatal.cpp
+      osApiWrappers/miscApi.cpp osApiWrappers/localCmp.cpp osApiWrappers/rwLock.cpp
+      osApiWrappers/syncFileIo.cpp osApiWrappers/findFile.cpp
+      osApiWrappers/basePath.cpp osApiWrappers/simplifyFname.cpp
+      osApiWrappers/fileIoErr.cpp osApiWrappers/directoryService.cpp osApiWrappers/namedMounts.cpp)
+    list(APPEND renderKernelSources "${kernelSources}/${source}")
+  endforeach()
+  target_sources(NauKernel PRIVATE ${renderKernelSources})
+endif()
+
 cmake_path(GET CMAKE_CURRENT_SOURCE_DIR PARENT_PATH moduleRoot)
 
 nau_collect_files(Sources

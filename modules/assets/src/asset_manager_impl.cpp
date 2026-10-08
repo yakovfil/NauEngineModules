@@ -187,7 +187,10 @@ namespace nau
             co_return container;
         };
 
-        return rtti::createInstance<AssetDescriptorImpl>(assetPath, std::move(loaderFunc));
+        auto containerPath = assetPath;
+        containerPath.setAssetInnerPath("");
+        auto container = rtti::createInstance<AssetDescriptorImpl>(std::move(containerPath), std::move(loaderFunc));
+        return container->getInnerAsset(assetPath.getAssetInnerPath());
     }
 
     nau::IAssetDescriptor::Ptr AssetManagerImpl::findAsset(const AssetPath& assetPath)

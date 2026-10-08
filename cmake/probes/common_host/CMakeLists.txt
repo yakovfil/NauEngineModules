@@ -43,7 +43,7 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 if(EMSCRIPTEN)
   target_link_options(NauCommonHostTests PRIVATE -sEXIT_RUNTIME=1 -sPTHREAD_POOL_SIZE=12 -sALLOW_BLOCKING_ON_MAIN_THREAD=0)
 endif()
-foreach(scenario success legacy fixed immediate deferred stopstartup stoppre pending shutdownerror configfail setupfail)
+foreach(scenario success legacy fixed immediate deferred stopstartup stoppre pending shutdownerror configfail setupfail runtime-pending runtime-legacy runtime-error runtime-startup-error runtime-cleanup-error)
   add_test(NAME CommonHost-${scenario} COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/run.py" --build "${CMAKE_BINARY_DIR}" --scenario ${scenario} --configuration $<CONFIG>)
   set_tests_properties(CommonHost-${scenario} PROPERTIES TIMEOUT 40 RUN_SERIAL TRUE)
