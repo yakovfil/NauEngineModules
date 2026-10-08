@@ -90,7 +90,7 @@ Memory starts at 128 MiB and grows up to 512 MiB, configurable through
 provisioning remains explicit. The profile is startup support for its selected
 components, not arbitrary desktop-module compatibility.
 
-`NauDemo/EditorProject` is the initial consumer and provides build helpers, authored
+`NauDemo` is the initial consumer and provides build helpers, authored
 component fixtures and real-browser acceptance. Its observation executable is a
 separate test delivery. The `cmake/probes/scene_startup` consumer exercises the same
 reader/profile natively and accepts `NAU_SCENE_TEST_PROJECT_SOURCE_DIR` explicitly;
