@@ -726,9 +726,9 @@ public:
 #if _TARGET_PC_WIN
   AdapterInfo getAdapterInfo();
   uint64_t getAdapterLuid();
-  void enumerateDisplayModes(std::vector<nau::string>& list);
-  void enumerateDisplayModesFromOutput(IDXGIOutput* dxgi_output, std::vector<nau::string>& list);
-  void enumerateActiveMonitors(std::vector<nau::string>& result);
+  void enumerateDisplayModes(std::vector<std::string>& list);
+  void enumerateDisplayModesFromOutput(IDXGIOutput* dxgi_output, std::vector<std::string>& list);
+  void enumerateActiveMonitors(std::vector<std::string>& result);
   ComPtr<IDXGIOutput> getOutputMonitorByNameOrDefault(const char *monitorName);
   HRESULT findClosestMatchingMode(DXGI_MODE_DESC *out_desc);
 #endif
@@ -1039,7 +1039,7 @@ public:
     return resources.allocateTempUploadForUploadBuffer(getDXGIAdapter(), device.get(), size, alignment);
   }
 
-  void generateResourceAndMemoryReport(uint32_t *num_textures, uint64_t *total_mem, nau::string *out_text)
+  void generateResourceAndMemoryReport(uint32_t* num_textures, uint64_t* total_mem, std::string* out_text)
   {
     resources.generateResourceAndMemoryReport(num_textures, total_mem, out_text);
   }

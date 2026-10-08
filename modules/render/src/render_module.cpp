@@ -9,10 +9,10 @@
 struct AppWinModule : public nau::IModule
 {
 // Inherited via IModule
-    nau::string getModuleName() override
-    {
-        return nau::string("AppWinModule");
-    }
+std::string getModuleName() override
+{
+    return std::string("AppWinModule");
+}
     void initialize() override
     {
     }

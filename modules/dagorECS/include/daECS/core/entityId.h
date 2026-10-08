@@ -2,8 +2,13 @@
 
 // Copyright (C) 2024  Gaijin Games KFT.  All rights reserved
 #pragma once
-#include "nau/string/string.h"
 #include <stdint.h>
+
+#include <string>
+#include <string_view>
+
+#include "nau/string/format.h"
+#include "nau/string/string_conv.h"
 
 namespace ecs
 {

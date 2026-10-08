@@ -68,7 +68,7 @@ namespace nau::render
         math::IVector2 cs = calcCreationSize();
 
         const uint32_t flags = TEXCF_RTARGET;
-        nau::string m_depthName("{}_intzDepthTex", m_name);
+        auto m_depthName = nau::utils::format("{}_intzDepthTex", m_name);
         TexPtr m_depthTex = dag::create_tex(NULL, cs.getX(), cs.getY(), targetFmt | flags, 1, reinterpret_cast<const char*>(m_depthName.c_str()));
 
         if (!m_depthTex && (targetFmt & TEXFMT_MASK) != TEXFMT_DEPTH32)
@@ -136,7 +136,7 @@ namespace nau::render
         m_numRt = numRT;
         for (int i = m_numRt - 1; i >= 0; --i)
         {
-            nau::string mrtName("{}_mrt_{}", name, i);
+            auto mrtName = nau::utils::format("{}_mrt_{}", name, i);
             unsigned mrtFmt = texFmt ? texFmt[i] : TEXFMT_A8R8G8B8;
             auto mrtTex = dag::create_tex(NULL, cs.getX(), cs.getY(), mrtFmt | TEXCF_RTARGET | msaaFlag, 1, reinterpret_cast<const char*>(mrtName.c_str()));
             d3d_err(!!mrtTex);

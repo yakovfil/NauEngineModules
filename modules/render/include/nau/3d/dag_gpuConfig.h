@@ -3,12 +3,15 @@
 // Copyright (C) 2024  Gaijin Games KFT.  All rights reserved
 #pragma once
 
+#include <string>
+#include <string_view>
 #include <vector>
 
 #include "nau/3d/dag_drv3dConsts.h"
 #include "nau/3d/dag_drvDecl.h"
 #include "nau/dataBlock/dag_dataBlock.h"
-#include "nau/string/string.h"
+#include "nau/string/format.h"
+#include "nau/string/string_conv.h"
 
 struct GpuVideoSettings
 {
@@ -18,7 +21,7 @@ struct GpuVideoSettings
   bool ignoreOutdatedDriver = false;
   bool configCompatibilityMode = false;
   bool allowDx10Fallback = false;
-  std::vector<nau::string> oldHardwareList;
+  std::vector<std::string> oldHardwareList;
   bool adjustVideoSettings = false;
   int lowVideoMemMb = 0;
   int ultraLowVideoMemMb = 0;
@@ -58,7 +61,7 @@ struct GpuUserConfig
   int64_t freeVirtualMemMb = 0;
   int64_t totalVirtualMemMb = 0;
 
-  nau::string generateDriverVersionString() const;
+  std::string generateDriverVersionString() const;
 };
 
 void d3d_read_gpu_video_settings(const nau::DataBlock &blk, GpuVideoSettings &out_video);

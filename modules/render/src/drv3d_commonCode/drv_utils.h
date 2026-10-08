@@ -16,9 +16,13 @@
 
 ////////////////////////////////////
 
-
 #include <stdint.h>
-#include "nau/string/string.h"
+
+#include <string>
+#include <string_view>
+
+#include "nau/string/format.h"
+#include "nau/string/string_conv.h"
 //#include <util/dag_compilerDefs.h>
 
 
@@ -70,7 +74,7 @@ bool set_render_window_params(RenderWindowParams &p, const RenderWindowSettings 
 
 int set_display_device_mode(bool inwin, int res_x, int res_y, int scr_bpp, DEVMODE &out_devm);
 
-bool get_monitor_info(const char *monitorName, nau::string* friendlyMonitorName, int *uniqueIndex);
+bool get_monitor_info(const char* monitorName, std::string* friendlyMonitorName, int* uniqueIndex);
 bool get_monitor_rect(const char *monitorName, RECT &monitorRect);
 
 bool is_window_occluded(HWND window);

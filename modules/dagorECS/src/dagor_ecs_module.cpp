@@ -9,10 +9,10 @@
 struct CoreDarorECSModule : public nau::IModule
 {
 // Inherited via IModule
-    nau::string getModuleName() override
-    {
-        return nau::string(u8"DagorECS");
-    }
+std::string getModuleName() override
+{
+    return nau::strings::toUtf8(u8"DagorECS");
+}
 
     void initialize() override
     {

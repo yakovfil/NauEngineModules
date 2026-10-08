@@ -16,11 +16,11 @@
   namespace d3d
   {
 #if _TARGET_PC_WIN
-  VPROG create_vertex_shader_hlsl(const char *hlsl_text, unsigned len, const char *entry, const char *profile, nau::string *out_err = NULL);
-  FSHADER create_pixel_shader_hlsl(const char *hlsl_text, unsigned len, const char *entry, const char *profile,
-    nau::string *out_err = NULL);
-  bool compile_compute_shader_hlsl(const char* hlsl_text, unsigned len, const char* entry, const char* profile,
-                                   std::vector<uint32_t>& shader_bin, nau::string& out_err);
+      VPROG create_vertex_shader_hlsl(const char* hlsl_text, unsigned len, const char* entry, const char* profile, std::string* out_err = NULL);
+      FSHADER create_pixel_shader_hlsl(const char* hlsl_text, unsigned len, const char* entry, const char* profile,
+                                       std::string* out_err = NULL);
+      bool compile_compute_shader_hlsl(const char* hlsl_text, unsigned len, const char* entry, const char* profile,
+                                       std::vector<uint32_t>& shader_bin, std::string& out_err);
 #endif
 
 #if !_TARGET_D3D_MULTI
@@ -60,6 +60,6 @@
   //! enables or disables strong VSYNC (flips only on VBLANK); returns true on success
   bool enable_vsync(bool enable);
   //! retrieve list of available display modes
-  void get_video_modes_list(std::vector<nau::string> & list);
+  void get_video_modes_list(std::vector<std::string> & list);
 #endif
   }; // namespace d3d

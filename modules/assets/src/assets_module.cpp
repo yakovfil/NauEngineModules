@@ -13,9 +13,9 @@ namespace nau
     struct AssetsModule : nau::IModule
     {
         // Inherited via IModule
-        nau::string getModuleName() override
+        std::string getModuleName() override
         {
-            return nau::string("AssetsModule");
+            return std::string("AssetsModule");
         }
         void initialize() override
         {

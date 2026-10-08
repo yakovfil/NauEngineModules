@@ -15,21 +15,24 @@
     #include <dxgi.h>
 
     #include <cmath>
+    #include <string>
+    #include <string_view>
     #include <vector>
 
-    #include "nau/string/string.h"
+    #include "nau/string/format.h"
+    #include "nau/string/string_conv.h"
 
 static constexpr size_t outputNameSize = 64;
 static_assert(outputNameSize >= sizeof(DXGI_OUTPUT_DESC::DeviceName), "sizeof outputName is too small!");
 
 // maybe optimize it (not important)
-nau::string get_monitor_name_from_output(IDXGIOutput *pOutput)
+std::string get_monitor_name_from_output(IDXGIOutput* pOutput)
 {
   DXGI_OUTPUT_DESC outDesc;
   pOutput->GetDesc(&outDesc);
   char outputName[outputNameSize];
   wcstombs(outputName, outDesc.DeviceName, outputNameSize);
-  return nau::string(outputName);
+  return std::string(outputName);
 }
 
 ComPtr<IDXGIOutput> get_output_monitor_by_name(IDXGIAdapter *pAdapter, const char *monitorName)

@@ -86,7 +86,7 @@ namespace nau::render
 
         StereoMode m_stereoMode = StereoMode::MonoOrMultipass;
         int m_numRt = 0, m_width = 0, m_height = 0;
-        nau::string m_name;
+        std::string m_name;
 
         d3d::SamplerHandle m_defaultSampler;
         ResizableResPtrTex m_mrts[MAX_NUM_MRT] = {};

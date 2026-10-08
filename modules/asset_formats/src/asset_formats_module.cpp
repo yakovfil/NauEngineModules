@@ -21,9 +21,9 @@ namespace nau
      */
     class AssetFormatsModule final : public nau::DefaultModuleImpl
     {
-        nau::string getModuleName() override
+        std::string getModuleName() override
         {
-            return u8"AssetFormatsModule";
+            return "AssetFormatsModule";
         }
 
         void initialize() override

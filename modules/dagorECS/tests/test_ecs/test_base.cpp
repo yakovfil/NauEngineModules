@@ -647,22 +647,22 @@ void testRecreate()
         ecs::ComponentsMap map;
         for(int i = 0; i < 128; ++i)
         {
-            nau::string str("bool_var_{}", i);
+            auto str = nau::utils::format("bool_var_{}", i);
             map[ECS_HASH_SLOW(str.c_str())] = i ? true : false;
         }
         for(int i = 0; i < 128; ++i)
         {
-            nau::string str("int_var_{}", i);
+            auto str = nau::utils::format("int_var_{}", i);
             map[ECS_HASH_SLOW(str.c_str())] = i;
         }
         for(int i = 0; i < 512; ++i)
         {
-            nau::string str("int2_var_{}", i);
+            auto str = nau::utils::format("int2_var_{}", i);
             map[ECS_HASH_SLOW(str.c_str())] = IVector2(i, i);
         }
         for(int i = 0; i < 512; ++i)
         {
-            nau::string str("point3_var_{}", i);
+            auto str = nau::utils::format("point3_var_{}", i);
             map[ECS_HASH_SLOW(str.c_str())] = Point3(i, i, i);
         }
         {

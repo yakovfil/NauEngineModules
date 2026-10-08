@@ -10,7 +10,7 @@ namespace nau::scripts
 {
     struct LuaScriptsModule : public nau::IModule
     {
-        nau::string getModuleName() override
+        std::string getModuleName() override
         {
             return "LuaModule";
         }

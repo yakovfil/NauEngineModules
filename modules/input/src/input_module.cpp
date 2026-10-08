@@ -47,9 +47,9 @@ namespace nau::input
 struct CoreInputModule : public nau::IModule
 {
     // Inherited via IModule
-    nau::string getModuleName() override
+    std::string getModuleName() override
     {
-        return nau::string(u8"CoreInput");
+        return nau::strings::toUtf8(u8"CoreInput");
     }
 
     void initialize() override

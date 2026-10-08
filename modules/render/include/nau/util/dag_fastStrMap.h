@@ -60,7 +60,7 @@ public:
 
   size_t strToHash(const char* name) const
   {
-      nau::string naustr;
+      std::string naustr;
       if(ignoreCase)
       {
         naustr = name; // TODO: make str into lower case
@@ -69,7 +69,7 @@ public:
       {
         naustr = name;
       }
-      std::hash<nau::string> hasher;
+      std::hash<std::string> hasher;
       size_t hash = hasher(naustr);
 
       return hash;

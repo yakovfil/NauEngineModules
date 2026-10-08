@@ -3257,9 +3257,9 @@ private:
     size_t nextEntry = 0;
   };
 
-  std::vector<nau::string> segments;
+  std::vector<std::string> segments;
   // have to store the resource name separate for later use, when resources may no longer be valid
-  std::vector<nau::string> resourceNames;
+  std::vector<std::string> resourceNames;
   std::vector<TextureUsageEntry> textureUsageEntries;
   std::vector<BufferUsageEntry> bufferUsageEntries;
 
@@ -3449,7 +3449,7 @@ private:
     return &bufferUsageEntries[e->nextEntry];
   }
 
-  nau::string_view segmentName(size_t index) const
+  std::string_view segmentName(size_t index) const
   {
     if (index < segments.size())
     {
@@ -3458,7 +3458,7 @@ private:
     return {};
   }
 
-  nau::string_view resourceName(size_t index) const
+  std::string_view resourceName(size_t index) const
   {
     if (index < resourceNames.size())
     {
@@ -3481,13 +3481,14 @@ private:
       is_automatic_transition(e.what), to_string(e.what));
   }
 
-  size_t addResourceName(nau::string_view name)
+  size_t addResourceName(std::string_view name)
   {
     // for what ever reason, the compiler fails to see the conversion operator to string view and
     // complains on simple find. So have to resort to find_if with a lambda that make this explicit.
     auto ref = std::find_if(begin(resourceNames), end(resourceNames),
                             [name](auto& s)  //
-    { return nau::string(name) == s;
+    {
+        return std::string(name) == s;
     });
     if (ref != end(resourceNames))
     {
@@ -3500,7 +3501,7 @@ private:
 
   size_t addResourceName(const char* name)
   {
-      nau::string resName = {name};
+      std::string resName = {name};
       return addResourceName(resName);
   }
 
@@ -3590,8 +3591,8 @@ public:
     else
     {
         auto previous = segments.back();
-        auto& s = segments.emplace_back(previous.size() + name.size());
-        auto& last = previous;  // nau::string(nau::string::CtorDoNotInitialize{}, last.size() + name.size());
+        auto& s = segments.emplace_back(previous.size() + name.size(), '\0');
+        auto& last = previous;  // std::string(std::string::CtorDoNotInitialize{}, last.size() + name.size());
         s.append(last);
         s.push_back('/');
 
@@ -3609,9 +3610,9 @@ public:
     }
 
     // TODO: fix it
-    // if(auto at = eastl::find_last_of(last.begin(), last.end(), '/'); at != nau::string::npos)
+    // if(auto at = eastl::find_last_of(last.begin(), last.end(), '/'); at != std::string::npos)
     //{
-    //   ::new (place) nau::string(last, 0, at);
+    //   ::new (place) std::string(last, 0, at);
     // }
     // else
     //{
@@ -3772,20 +3773,20 @@ class ResourceUsageHistoryDataSetDebugger
 
   struct TextureInfo
   {
-    nau::string name;
-    Image *texture;
-    FormatStore fmt;
-    SubresourceIndex subRes;
-    uint32_t entries;
-    uint32_t neededTransitionCount;
+      std::string name;
+      Image* texture;
+      FormatStore fmt;
+      SubresourceIndex subRes;
+      uint32_t entries;
+      uint32_t neededTransitionCount;
   };
 
   struct BufferInfo
   {
-    nau::string name;
-    BufferResourceReference buffer;
-    uint32_t entries;
-    uint32_t neededTransitionCount;
+      std::string name;
+      BufferResourceReference buffer;
+      uint32_t entries;
+      uint32_t neededTransitionCount;
   };
 
   enum class AnalyzerMode
@@ -3807,10 +3808,10 @@ class ResourceUsageHistoryDataSetDebugger
   {
     D3D12_RESOURCE_STATES currentState;
     ResourceBarrier expectedState;
-    nau::string_view segment;
+    std::string_view segment;
     ResourceUsageHistoryDataSet::UsageEntryType what;
     bool isAutomaticTransition;
-    nau::string_view whatString;
+    std::string_view whatString;
     uint32_t count;
     AnalyzedIssueType issueType;
   };
@@ -3842,20 +3843,12 @@ class ResourceUsageHistoryDataSetDebugger
   }
 
   static AnalyzerMode drawAnalyzerModeSelector(AnalyzerMode mode);
-  void addAnalziedTextureInfo(D3D12_RESOURCE_STATES current_state, ResourceBarrier expected_state, nau::string_view segment,
-    ResourceUsageHistoryDataSet::UsageEntryType what, bool is_automatic_transition, nau::string_view what_string,
-    AnalyzedIssueType issue_type);
-  void addUniqueAnalziedTextureInfo(D3D12_RESOURCE_STATES current_state, ResourceBarrier expected_state, nau::string_view segment,
-    ResourceUsageHistoryDataSet::UsageEntryType what, bool is_automatic_transition, nau::string_view what_string,
-    AnalyzedIssueType issue_type);
-  void addAnalziedBufferInfo(D3D12_RESOURCE_STATES current_state, ResourceBarrier expected_state, nau::string_view segment,
-    ResourceUsageHistoryDataSet::UsageEntryType what, bool is_automatic_transition, nau::string_view what_string,
-    AnalyzedIssueType issue_type);
-  void addUniqueAnalziedBufferInfo(D3D12_RESOURCE_STATES current_state, ResourceBarrier expected_state, nau::string_view segment,
-    ResourceUsageHistoryDataSet::UsageEntryType what, bool is_automatic_transition, nau::string_view what_string,
-    AnalyzedIssueType issue_type);
-  void addTextureInfo(nau::string_view name, Image *texture, SubresourceIndex sub_res, FormatStore fmt, bool needs_transition);
-  void addBufferInfo(nau::string_view name, BufferResourceReference buffer, bool needs_transition);
+  void addAnalziedTextureInfo(D3D12_RESOURCE_STATES current_state, ResourceBarrier expected_state, std::string_view segment, ResourceUsageHistoryDataSet::UsageEntryType what, bool is_automatic_transition, std::string_view what_string, AnalyzedIssueType issue_type);
+  void addUniqueAnalziedTextureInfo(D3D12_RESOURCE_STATES current_state, ResourceBarrier expected_state, std::string_view segment, ResourceUsageHistoryDataSet::UsageEntryType what, bool is_automatic_transition, std::string_view what_string, AnalyzedIssueType issue_type);
+  void addAnalziedBufferInfo(D3D12_RESOURCE_STATES current_state, ResourceBarrier expected_state, std::string_view segment, ResourceUsageHistoryDataSet::UsageEntryType what, bool is_automatic_transition, std::string_view what_string, AnalyzedIssueType issue_type);
+  void addUniqueAnalziedBufferInfo(D3D12_RESOURCE_STATES current_state, ResourceBarrier expected_state, std::string_view segment, ResourceUsageHistoryDataSet::UsageEntryType what, bool is_automatic_transition, std::string_view what_string, AnalyzedIssueType issue_type);
+  void addTextureInfo(std::string_view name, Image* texture, SubresourceIndex sub_res, FormatStore fmt, bool needs_transition);
+  void addBufferInfo(std::string_view name, BufferResourceReference buffer, bool needs_transition);
   void processDataSet(FrameDataSet &data_set);
   void processDataSets();
 

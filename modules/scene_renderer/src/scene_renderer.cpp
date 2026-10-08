@@ -369,7 +369,7 @@ namespace nau::render
     }  // namespace
     struct SceneRenderingModule final : IModule
     {
-        nau::string getModuleName() override
+        std::string getModuleName() override
         {
             return "SceneRenderer";
         }

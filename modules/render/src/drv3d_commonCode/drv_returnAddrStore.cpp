@@ -57,12 +57,12 @@ void before_unlock(int lock_count)
   if (lock_count == 0)
     global_ptrs.clear();
 }
-nau::string ptrs_to_string()
+std::string ptrs_to_string()
 {
-  nau::string result = "";
-  for (const void *ptr : global_ptrs)
-    result.append(nau::string::format("%p ", ptr));
-  return result;
+    std::string result = "";
+    for (const void* ptr : global_ptrs)
+        result.append(nau::utils::format("%p ", ptr));
+    return result;
 }
 bool validate_addr_store(bool is_locked) { return global_ptrs.empty() != is_locked; }
 } // namespace lockreturnaddr

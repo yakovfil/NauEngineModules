@@ -126,7 +126,7 @@ void tql::initTexStubs()
       }
 
       int flg = (gamma1 ? 0 : TEXCF_SRGBREAD | TEXCF_SRGBWRITE);
-      nau::string name = nau::string::format("texStub{}:{}", idx - 2, ttype);
+      std::string name = nau::utils::format("texStub{}:{}", idx - 2, ttype);
 
       if (strcmp(ttype, "tex") == 0)
         memcpy(&opd[idx], &opd[RES3D_TEX], sizeof(OnePixDDSx));
@@ -144,7 +144,7 @@ void tql::initTexStubs()
       else
         opd[idx].hdr.flags &= ~ddsx::Header::FLG_GAMMA_EQ_1;
       opd[idx].p[0].u = c.u;
-      texStub[idx] = d3d::alloc_ddsx_tex(opd[idx].hdr, flg, 0, 1, name.c_str());
+      texStub[idx] = d3d::alloc_ddsx_tex(opd[idx].hdr, flg, 0, 1, reinterpret_cast<const char8_t*>(name.c_str()));
     }
 
   texStub.shrink_to_fit();

@@ -39,7 +39,7 @@ namespace nau
 
     struct SkeletalAnimRuntimeData final
     {
-        std::map<nau::string, SkeletalTrackData> tracks;
+        std::map<std::string, SkeletalTrackData> tracks;
 
         // Buffer of local transforms after blending is performed
         ozz::vector<ozz::math::SoaTransform> locals;

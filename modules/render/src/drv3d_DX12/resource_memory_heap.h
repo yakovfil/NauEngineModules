@@ -966,7 +966,7 @@ public:
     NAU_LOG_DEBUG("DX12: Finished waiting for temporary memory uses...");
   }
 
-  void generateResourceAndMemoryReport(uint32_t *num_textures, uint64_t *total_mem, nau::string *out_text);
+  void generateResourceAndMemoryReport(uint32_t* num_textures, uint64_t* total_mem, std::string* out_text);
 
   using BaseType::reportOOMInformation;
 

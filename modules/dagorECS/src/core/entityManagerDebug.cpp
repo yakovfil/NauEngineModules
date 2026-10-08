@@ -34,13 +34,13 @@ void EntityManager::dumpArchetypes(int max_a)
     for (int ai = 0; ai < maxArch; ++ai)
     {
       AInfo &a = archetypesInfo[ai];
-      nau::string str;
+      std::string str;
       for (int ti = 0; ti < templates.size(); ++ti)
       {
         auto &t = templates.getTemplate(ti);
         if (t.archetype == a.ai)
         {
-          str = nau::string::format("{}{}<{}>", str, str.size() ? ", " : "", getTemplateName(ti));
+            str = nau::utils::format("{}{}<{}>", str, str.size() ? ", " : "", getTemplateName(ti));
         }
       }
       ECS_LOG("archetype {} has entitySize = {} and {} components, used in templates<{}>", a.ai, a.size, a.count, str.c_str());
@@ -62,15 +62,15 @@ bool EntityManager::dumpArchetype(uint32_t a)
 {
   if (a >= archetypes.size())
     return false;
-  nau::string str;
+  std::string str;
 
   for (int ti = 0; ti < templates.size(); ++ti)
   {
     auto &t = templates.getTemplate(ti);
       if(t.archetype == a)
       {
-        str.append_format("{}<{}>", str, str.size() ? ", " : "", getTemplateName(ti));
-        //str.aprintf(128, "{}<{}>", str.size() ? ", " : "", getTemplateName(ti));
+          str += nau::utils::format("{}<{}>", str, str.size() ? ", " : "", getTemplateName(ti));
+          // str.aprintf(128, "{}<{}>", str.size() ? ", " : "", getTemplateName(ti));
       }
   }
   ECS_LOG("archetype {} has entitySize = {} and {} components, used in templates<{}>", a, archetypes.getArchetype(a).componentsCnt,
@@ -79,8 +79,8 @@ bool EntityManager::dumpArchetype(uint32_t a)
   for (int ci = 0; ci < archetypes.getArchetype(a).componentsCnt; ++ci)
   {
       component_index_t cidx = archetypes.getComponent(a, ci);
-          str.append_format(128, "{}{}:{}", str.size() ? "\n" : "", dataComponents.getComponentNameById(cidx),
-                      componentTypes.getTypeNameById(dataComponents.getComponentById(cidx).componentType));
+      str += nau::utils::format("{}{}:{}", str.size() ? "\n" : "", dataComponents.getComponentNameById(cidx),
+                                componentTypes.getTypeNameById(dataComponents.getComponentById(cidx).componentType));
   }
   ECS_LOG("components:\n{}", str.c_str());
   return true;

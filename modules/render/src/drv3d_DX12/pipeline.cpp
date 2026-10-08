@@ -331,69 +331,69 @@ bool PipelineVariant::create(ID3D12Device2 *device, backend::ShaderModuleManager
     {
       if (is_recoverable_error(result))
       {
-          ::nau::string fb_layout_info;
-        fb_layout_info = ::nau::string::format(u8"hasDepth {}", (int)fb_layout.depthBitStates.hasDepth);
-        uint8_t sampleCount = 1;
-        if (fb_layout.depthBitStates.hasDepth)
-        {
-          fb_layout_info.append_format(" depthStencilFormat {}", fb_layout.depthStencilFormat.getNameString());
-          sampleCount = 1 << fb_layout.depthBitStates.depthMsaaLevel;
-        }
-        fb_layout_info.append_format(" colorTargetMask {}", fb_layout.colorTargetMask);
-        if (fb_layout.colorTargetMask)
-        {
-          uint32_t mask = fb_layout.colorTargetMask;
-          fb_layout_info.append_format(" colorFormats were");
-          for (uint32_t i = 0; i < 8 && mask; ++i, mask >>= 1)
+          ::std::string fb_layout_info;
+          fb_layout_info = ::nau::utils::format(u8"hasDepth {}", (int)fb_layout.depthBitStates.hasDepth);
+          uint8_t sampleCount = 1;
+          if (fb_layout.depthBitStates.hasDepth)
           {
-            if (mask & 1)
-            {
-              fb_layout_info.append_format(" {}", fb_layout.colorFormats[i].getNameString());
-              sampleCount = 1 << fb_layout.getColorMsaaLevel(i);
-            }
-            else
-              fb_layout_info.append_format(" DXGI_FORMAT_UNKNOWN");
+              fb_layout_info += nau::utils::format(" depthStencilFormat {}", fb_layout.depthStencilFormat.getNameString());
+              sampleCount = 1 << fb_layout.depthBitStates.depthMsaaLevel;
           }
-        }
-
-        fb_layout_info.append_format(" sampleCount {}", sampleCount);
-
-
-        // TODO: fix it, need to add append to input_layout_info
-        ::nau::string input_layout_info;
-        input_layout_info = ::nau::string::format("inputCount {}, mask {}", inputCount, input_layout.vertexAttributeSet.locationMask);
-        if (inputCount)
-          input_layout_info.append_format(" and attributes");
-        input_layout.generateInputElementDescriptions([&input_layout_info](auto desc) {
-          input_layout_info.append_format(" (SemanticName {}", desc.SemanticName);
-          input_layout_info.append_format(" SemanticIndex {}", desc.SemanticIndex);
-          input_layout_info.append_format(" Format {}", desc.Format);
-          input_layout_info.append_format(" InputSlot {}", desc.InputSlot);
-          input_layout_info.append_format(" AlignedByteOffset {}", desc.AlignedByteOffset);
-          input_layout_info.append_format(" InputSlotClass {})", (int)desc.InputSlotClass);
-        });
-        // generate inputs that are consumed by the vertex shader, this will show if the input layout was under specified.
-        ::nau::string consumedInputLayout;
-        auto mask = base.vsModule.header.header.inOutSemanticMask;
-        if (mask)
-        {
-          consumedInputLayout = ::nau::string::format("mask {}", base.vsModule.header.header.inOutSemanticMask);
-          for (uint32_t i = 0; i < MAX_SEMANTIC_INDEX && mask; ++i, mask >>= 1)
+          fb_layout_info += nau::utils::format(" colorTargetMask {}", fb_layout.colorTargetMask);
+          if (fb_layout.colorTargetMask)
           {
-            if (mask & 1)
-            {
-              dxil::SemanticInfo* semanticInfo = nullptr; //dxil::getSemanticInfoFromIndex(i);
-              //NAU_ASSERT(semanticInfo);
-              if (!semanticInfo)
-                break;
-
-              consumedInputLayout.append_format(" (SemanticName {} SemanticIndex {})", semanticInfo->name, semanticInfo->index);
-            }
+              uint32_t mask = fb_layout.colorTargetMask;
+              fb_layout_info += nau::utils::format(" colorFormats were");
+              for (uint32_t i = 0; i < 8 && mask; ++i, mask >>= 1)
+              {
+                  if (mask & 1)
+                  {
+                      fb_layout_info += nau::utils::format(" {}", fb_layout.colorFormats[i].getNameString());
+                      sampleCount = 1 << fb_layout.getColorMsaaLevel(i);
+                  }
+                  else
+                      fb_layout_info += nau::utils::format(" DXGI_FORMAT_UNKNOWN");
+              }
           }
+
+          fb_layout_info += nau::utils::format(" sampleCount {}", sampleCount);
+
+          // TODO: fix it, need to add append to input_layout_info
+          ::std::string input_layout_info;
+          input_layout_info = ::nau::utils::format("inputCount {}, mask {}", inputCount, input_layout.vertexAttributeSet.locationMask);
+          if (inputCount)
+              input_layout_info += nau::utils::format(" and attributes");
+          input_layout.generateInputElementDescriptions([&input_layout_info](auto desc)
+          {
+              input_layout_info += nau::utils::format(" (SemanticName {}", desc.SemanticName);
+              input_layout_info += nau::utils::format(" SemanticIndex {}", desc.SemanticIndex);
+              input_layout_info += nau::utils::format(" Format {}", desc.Format);
+              input_layout_info += nau::utils::format(" InputSlot {}", desc.InputSlot);
+              input_layout_info += nau::utils::format(" AlignedByteOffset {}", desc.AlignedByteOffset);
+              input_layout_info += nau::utils::format(" InputSlotClass {})", (int)desc.InputSlotClass);
+          });
+          // generate inputs that are consumed by the vertex shader, this will show if the input layout was under specified.
+          ::std::string consumedInputLayout;
+          auto mask = base.vsModule.header.header.inOutSemanticMask;
+          if (mask)
+          {
+              consumedInputLayout = ::nau::utils::format("mask {}", base.vsModule.header.header.inOutSemanticMask);
+              for (uint32_t i = 0; i < MAX_SEMANTIC_INDEX && mask; ++i, mask >>= 1)
+              {
+                  if (mask & 1)
+                  {
+                      dxil::SemanticInfo* semanticInfo = nullptr;  // dxil::getSemanticInfoFromIndex(i);
+                      // NAU_ASSERT(semanticInfo);
+                      if (!semanticInfo)
+                          break;
+
+                      consumedInputLayout += nau::utils::format(" (SemanticName {} SemanticIndex {})", semanticInfo->name, semanticInfo->index);
+                  }
+              }
         }
         else
         {
-          consumedInputLayout.append_format("nothing");
+            consumedInputLayout += nau::utils::format("nothing");
         }
 
         on_error = RecoverablePipelineCompileBehavior::REPORT_ERROR;
@@ -515,44 +515,46 @@ bool PipelineVariant::createMesh(ID3D12Device2 *device, backend::ShaderModuleMan
     {
       if (is_recoverable_error(result))
       {
-        nau::string fb_layout_info;
-        fb_layout_info = nau::string::format(64, "hasDepth %u", (int)fb_layout.depthBitStates.hasDepth);
-        uint8_t sampleCount = 1;
-        if (fb_layout.depthBitStates.hasDepth)
-        {
-          fb_layout_info = nau::string::format(128, " depthStencilFormat %s", fb_layout.depthStencilFormat.getNameString());
-          sampleCount = 1 << fb_layout.depthBitStates.depthMsaaLevel;
-        }
-        fb_layout_info = nau::string::format(64, " colorTargetMask %u", fb_layout.colorTargetMask);
-        if (fb_layout.colorTargetMask)
-        {
-          uint32_t mask = fb_layout.colorTargetMask;
-          fb_layout_info = nau::string::format(64, " colorFormats were");
-          for (uint32_t i = 0; i < 8 && mask; ++i, mask >>= 1)
+          std::string fb_layout_info;
+          fb_layout_info = nau::utils::format("hasDepth %u", (int)fb_layout.depthBitStates.hasDepth);
+          uint8_t sampleCount = 1;
+          if (fb_layout.depthBitStates.hasDepth)
           {
-            if (mask & 1)
-            {
-              fb_layout_info = nau::string::format(128, " %s", fb_layout.colorFormats[i].getNameString());
-              sampleCount = 1 << fb_layout.getColorMsaaLevel(i);
-            }
-            else
-              fb_layout_info = nau::string::format(128, " DXGI_FORMAT_UNKNOWN");
+              fb_layout_info = nau::utils::format(" depthStencilFormat %s", fb_layout.depthStencilFormat.getNameString());
+              sampleCount = 1 << fb_layout.depthBitStates.depthMsaaLevel;
           }
-        }
+          fb_layout_info = nau::utils::format(" colorTargetMask %u", fb_layout.colorTargetMask);
+          if (fb_layout.colorTargetMask)
+          {
+              uint32_t mask = fb_layout.colorTargetMask;
+              fb_layout_info = nau::utils::format(" colorFormats were");
+              for (uint32_t i = 0; i < 8 && mask; ++i, mask >>= 1)
+              {
+                  if (mask & 1)
+                  {
+                      fb_layout_info = nau::utils::format(" %s", fb_layout.colorFormats[i].getNameString());
+                      sampleCount = 1 << fb_layout.getColorMsaaLevel(i);
+                  }
+                  else
+                      fb_layout_info = nau::utils::format(" DXGI_FORMAT_UNKNOWN");
+              }
+          }
 
-        fb_layout_info = nau::string::format(64, " sampleCount %d", sampleCount);
+          fb_layout_info = nau::utils::format(" sampleCount %d", sampleCount);
 
-        switch (on_error)
-        {
-          // Returning succeeded for failed shader factoring because of bad input parameters? (This comment is only for review, to be
-          // removed)
-          case RecoverablePipelineCompileBehavior::FATAL_ERROR: return true; break;
-          case RecoverablePipelineCompileBehavior::ASSERT_FAIL:
-          case RecoverablePipelineCompileBehavior::REPORT_ERROR:
-            NAU_LOG_ERROR("CreatePipelineState failed for MS {} and PS {}, state was {}, fb_layout was - {} -",
-              base.vsModule.header.debugName.c_str(), base.psModule.header.debugName.c_str(), static_state.toString(), fb_layout_info);
-            break;
-        }
+          switch (on_error)
+          {
+              // Returning succeeded for failed shader factoring because of bad input parameters? (This comment is only for review, to be
+              // removed)
+              case RecoverablePipelineCompileBehavior::FATAL_ERROR:
+                  return true;
+                  break;
+              case RecoverablePipelineCompileBehavior::ASSERT_FAIL:
+              case RecoverablePipelineCompileBehavior::REPORT_ERROR:
+                  NAU_LOG_ERROR("CreatePipelineState failed for MS {} and PS {}, state was {}, fb_layout was - {} -",
+                                base.vsModule.header.debugName.c_str(), base.psModule.header.debugName.c_str(), static_state.toString(), fb_layout_info);
+                  break;
+          }
       }
       else
       {

@@ -11,9 +11,13 @@
 //#include <math/dag_color.h>
 //#include <memory/dag_mem.h>
 //#include <util/dag_stdint.h>
+#include <string>
+#include <string_view>
+
 #include "nau/dag_ioSys/dag_genIo.h"
 #include "nau/math/dag_e3dColor.h"
-#include "nau/string/string.h"
+#include "nau/string/format.h"
+#include "nau/string/string_conv.h"
 
 // forward declarations for tex pixel formats
 struct TexPixel32;

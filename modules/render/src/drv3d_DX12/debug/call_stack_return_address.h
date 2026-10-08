@@ -141,8 +141,13 @@ class Reporter
 {
 public:
   void report(const CommandData &) {}
-  void append(nau::string &, const char *, const CommandData &) {}
-  nau::string_view resolve(const CommandData &) { return {}; }
+  void append(std::string&, const char*, const CommandData&)
+  {
+  }
+  std::string_view resolve(const CommandData&)
+  {
+      return {};
+  }
 };
 } // namespace return_address
 } // namespace call_stack

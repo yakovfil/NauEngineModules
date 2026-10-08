@@ -10,7 +10,7 @@ namespace nau
 {
     struct GraphicsModule : public IModule
     {
-        nau::string getModuleName() override
+        std::string getModuleName() override
         {
             return "GraphicsModule";
         }

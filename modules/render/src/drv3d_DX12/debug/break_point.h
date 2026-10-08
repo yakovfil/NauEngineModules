@@ -15,7 +15,7 @@ namespace core
 {
 class Controller : public call_stack::ExecutionContextDataStore, public debug::call_stack::Reporter
 {
-    std::vector<nau::string> breakPoints;
+    std::vector<std::string> breakPoints;
 
     using BaseType = call_stack::ExecutionContextDataStore;
     bool isBreakPoint(const call_stack::CommandData& call_stack_info)
@@ -46,22 +46,19 @@ public:
       breakNow();
     }
   }
-  void addBreakPointString(nau::string_view text)
+  void addBreakPointString(std::string_view text)
   {
       breakPoints.emplace_back(text);
   }
-  void removeBreakPointString(nau::string_view text)
+  void removeBreakPointString(std::string_view text)
   {
-    // The comparison operator implementations for string_view of eastl are completely broken, they have variants with
-    // decay_t<string_view> with will incorrectly decay and result in operators with the same signature and mangled
-    // name and so collide. So to avoid this, we have to cast it to string_view here.
-
-    nau::string temp = text;
-    auto newEnd = std::remove_if(begin(breakPoints), end(breakPoints), [temp](auto& bp)
-    {
-        return temp == bp;
-    });
-    breakPoints.erase(newEnd, end(breakPoints));
+      // Keep the lookup text alive while removing/moving owned breakpoint strings.
+      std::string temp{text};
+      auto newEnd = std::remove_if(begin(breakPoints), end(breakPoints), [temp](auto& bp)
+      {
+          return temp == bp;
+      });
+      breakPoints.erase(newEnd, end(breakPoints));
   }
 };
 } // namespace core

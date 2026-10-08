@@ -2,6 +2,7 @@
 
 // Copyright (C) 2024  Gaijin Games KFT.  All rights reserved
 
+#include "nau/utils/span.h"
 #include "device.h"
 
 #include <drv3d_commonCode/nvLowLatency.h>
@@ -1152,16 +1153,16 @@ Device::AdapterInfo Device::getAdapterInfo()
   return info;
 }
 
-void Device::enumerateDisplayModes(std::vector<nau::string>& list)
+void Device::enumerateDisplayModes(std::vector<std::string>& list)
 {
-  clear_and_shrink(list);
-  ScopedCommitLock ctxLock{context};
-  if (auto output = context.back.swapchain.getOutput())
-  {
-    enumerateDisplayModesFromOutput(output, list);
-  }
+    nau::clear_and_shrink(list);
+    ScopedCommitLock ctxLock{context};
+    if (auto output = context.back.swapchain.getOutput())
+    {
+        enumerateDisplayModesFromOutput(output, list);
+    }
 }
-void Device::enumerateDisplayModesFromOutput(IDXGIOutput* dxgi_output, std::vector<nau::string>& list)
+void Device::enumerateDisplayModesFromOutput(IDXGIOutput* dxgi_output, std::vector<std::string>& list)
 {
   static constexpr UINT MIN_MODE_WIDTH = 800;
   static constexpr UINT MIN_MODE_HEIGHT = 600;
@@ -1224,19 +1225,19 @@ void Device::enumerateDisplayModesFromOutput(IDXGIOutput* dxgi_output, std::vect
           std::transform(begin(displayModes), end(displayModes), list.data(),
                          [](const DXGI_MODE_DESC& mode)  //
           {
-              nau::string retStr = nau::string::format(64, "{} x {}", mode.Width, mode.Height);
+              std::string retStr = nau::utils::format("{} x {}", mode.Width, mode.Height);
               return retStr;
           });
       }
   }
 }
 
-void Device::enumerateActiveMonitors(std::vector<nau::string>& result)
+void Device::enumerateActiveMonitors(std::vector<std::string>& result)
 {
-  clear_and_shrink(result);
-  ComPtr<IDXGIOutput> activeOutput;
-  for (uint32_t outputIndex = 0; SUCCEEDED(adapter->EnumOutputs(outputIndex, &activeOutput)); outputIndex++)
-    result.push_back(get_monitor_name_from_output(activeOutput.Get()));
+    nau::clear_and_shrink(result);
+    ComPtr<IDXGIOutput> activeOutput;
+    for (uint32_t outputIndex = 0; SUCCEEDED(adapter->EnumOutputs(outputIndex, &activeOutput)); outputIndex++)
+        result.push_back(get_monitor_name_from_output(activeOutput.Get()));
 }
 
 ComPtr<IDXGIOutput> Device::getOutputMonitorByNameOrDefault(const char *displayName)

@@ -167,7 +167,7 @@ public:
     }
   }
 
-  void append(nau::string &buffer, const char *prefix, const CommandData &data)
+  void append(std::string& buffer, const char* prefix, const CommandData& data)
   {
     switch (data.activeMember)
     {
@@ -177,7 +177,7 @@ public:
     }
   }
 
-  nau::string_view resolve(const CommandData &data)
+  std::string_view resolve(const CommandData& data)
   {
     switch (data.activeMember)
     {

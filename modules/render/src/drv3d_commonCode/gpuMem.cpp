@@ -164,8 +164,7 @@ static int get_dx11_feature_level_supported()
   return featureLevelSupported;
 }
 
-static int get_active_gpu_vendor_pc(nau::string &out_active_gpu_description, uint32_t &out_video_memory_mb,
-  uint32_t &out_free_video_memory_mb, int &feature_level_supported, uint32_t drv_ver[4], nau::hal::DagorDateTime &drv_date, uint32_t &device_id)
+static int get_active_gpu_vendor_pc(std::string& out_active_gpu_description, uint32_t& out_video_memory_mb, uint32_t& out_free_video_memory_mb, int& feature_level_supported, uint32_t drv_ver[4], nau::hal::DagorDateTime& drv_date, uint32_t& device_id)
 {
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -331,12 +330,10 @@ static int get_active_gpu_vendor_pc(nau::string &out_active_gpu_description, uin
 }
 
 #elif _TARGET_PC_MACOSX
-extern void mac_get_vdevice_info(int &vram, int &vendor, nau::string &gpu_desc, bool &web_driver);
+extern void mac_get_vdevice_info(int& vram, int& vendor, std::string& gpu_desc, bool& web_driver);
 #endif
 
-
-static int guess_gpu_vendor_internal(nau::string *out_gpu_desc, uint32_t *out_drv_ver, nau::hal::DagorDateTime *out_drv_date, uint32_t *device_id,
-  uint32_t *out_gpu_video_memory_mb, int *out_feature_level_supported)
+static int guess_gpu_vendor_internal(std::string* out_gpu_desc, uint32_t* out_drv_ver, nau::hal::DagorDateTime* out_drv_date, uint32_t* device_id, uint32_t* out_gpu_video_memory_mb, int* out_feature_level_supported)
 {
   if (cached_gpu_vendor == -1)
   {
@@ -346,7 +343,7 @@ static int guess_gpu_vendor_internal(nau::string *out_gpu_desc, uint32_t *out_dr
 
 #if _TARGET_PC_WIN
     // Detect dynamically switchable graphics.
-    nau::string activeGpuDescription;
+    std::string activeGpuDescription;
     cached_gpu_vendor = get_active_gpu_vendor_pc(activeGpuDescription, cached_gpu_video_memory_mb, cached_gpu_free_video_memory_mb,
       cached_feature_level_supported, cached_gpu_drv_ver, cached_gpu_drv_date, cached_gpu_device_id);
     NAU_LOG_DEBUG(cached_gpu_desc, sizeof(cached_gpu_desc), "{}", activeGpuDescription);
@@ -382,7 +379,7 @@ static int guess_gpu_vendor_internal(nau::string *out_gpu_desc, uint32_t *out_dr
 #elif _TARGET_PC_MACOSX
     int vram = 0;
     bool webDriver;
-    nau::string gpuDesc;
+    std::string gpuDesc;
     mac_get_vdevice_info(vram, cached_gpu_vendor, gpuDesc, webDriver);
     NAU_LOG_DEBUG(cached_gpu_desc, sizeof(cached_gpu_desc), "{}", gpuDesc.str());
 #else
@@ -405,7 +402,7 @@ static int guess_gpu_vendor_internal(nau::string *out_gpu_desc, uint32_t *out_dr
   return cached_gpu_vendor != -1 ? cached_gpu_vendor : D3D_VENDOR_NONE;
 }
 
-int d3d::guess_gpu_vendor(nau::string *out_gpu_desc, uint32_t *out_drv_ver, nau::hal::DagorDateTime *out_drv_date, uint32_t *device_id)
+int d3d::guess_gpu_vendor(std::string* out_gpu_desc, uint32_t* out_drv_ver, nau::hal::DagorDateTime* out_drv_date, uint32_t* device_id)
 {
   return guess_gpu_vendor_internal(out_gpu_desc, out_drv_ver, out_drv_date, device_id, nullptr, nullptr);
 }
@@ -613,9 +610,9 @@ unsigned d3d::get_free_dedicated_gpu_memory_size_kb() { return 0; }
 #endif
 
 #if _TARGET_PC_WIN
-static nau::string video_vendor_info_str;
+static std::string video_vendor_info_str;
 
-void d3d::get_video_vendor_str(nau::string &out_str)
+void d3d::get_video_vendor_str(std::string& out_str)
 {
   if (!video_vendor_info_str.empty())
   {
@@ -633,7 +630,7 @@ void d3d::get_video_vendor_str(nau::string &out_str)
   out_str = video_vendor_info_str;
 }
 
-bool d3d::get_gpu_freq(nau::string &out_freq)
+bool d3d::get_gpu_freq(std::string& out_freq)
 {
 #if HAS_NVAPI
   if (get_nv_physical_gpu())
@@ -645,14 +642,14 @@ bool d3d::get_gpu_freq(nau::string &out_freq)
       freq.version = NV_GPU_CLOCK_FREQUENCIES_VER_2;
       freq.ClockType = clockType;
       NvAPI_GPU_GetAllClockFrequencies(get_nv_physical_gpu(), &freq);
-      out_freq += nau::string(0, "{}{}: ", clockType == 0 ? "" : ", ", clockTypeStr[clockType]);
+      out_freq += nau::utils::format("{}{}: ", clockType == 0 ? "" : ", ", clockTypeStr[clockType]);
       bool first = true;
       for (int domainNo = 0; domainNo < NVAPI_MAX_GPU_PUBLIC_CLOCKS; domainNo++)
       {
         if (freq.domain[domainNo].bIsPresent)
         {
-          out_freq += nau::string(0, "{}{} MHz", first ? "" : " / ", freq.domain[domainNo].frequency / 1000);
-          first = false;
+            out_freq += nau::utils::format("{}{} MHz", first ? "" : " / ", freq.domain[domainNo].frequency / 1000);
+            first = false;
         }
       }
     }
@@ -694,7 +691,12 @@ int d3d::get_gpu_temperature()
   return 0;
 }
 #else
-void d3d::get_video_vendor_str(nau::string &) {}
-bool d3d::get_gpu_freq(nau::string &) { return false; }
+void d3d::get_video_vendor_str(std::string&)
+{
+}
+bool d3d::get_gpu_freq(std::string&)
+{
+    return false;
+}
 int d3d::get_gpu_temperature() { return 0; }
 #endif

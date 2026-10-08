@@ -117,100 +117,100 @@ public:
     static_assert(sizeof(BlendParams) == 3);
     static_assert(sizeof(blendParams) == shaders::RenderState::NumIndependentBlendParameters * sizeof(BlendParams));
 
-    nau::string toString() const
+    std::string toString() const
     {
-      nau::string result;
+        std::string result;
 
-      // TODO: fix it
-      //result.aprintf(64, " enableDepthTest %u", enableDepthTest);
-      //result.aprintf(64, " enableDepthWrite %u", enableDepthWrite);
-      //result.aprintf(64, " enableDepthClip %u", enableDepthClip);
-      //result.aprintf(64, " enableDepthBounds %u", enableDepthBounds);
-      //result.aprintf(64, " enableStencil %u", enableStencil);
-      //result.aprintf(64, " enableIndependentBlend %u", enableIndependentBlend);
-      //result.aprintf(64, " enableAlphaToCoverage %u", enableAlphaToCoverage);
-      //
-      //result.aprintf(64, " depthFunc %u", depthFunc);
-      //result.aprintf(64, " stencilReadMask %u", stencilReadMask);
-      //result.aprintf(64, " stencilWriteMask %u", stencilWriteMask);
-      //result.aprintf(64, " stencilFunction %u", stencilFunction);
-      //result.aprintf(64, " stencilOnFail %u", stencilOnFail);
-      //result.aprintf(64, " stencilOnDepthFail %u", stencilOnDepthFail);
-      //result.aprintf(64, " stencilOnPass %u", stencilOnPass);
-      //result.aprintf(64, " forcedSampleCountShift %u", forcedSampleCountShift);
-      //result.aprintf(64, " enableConservativeRaster %u", enableConservativeRaster);
-      //
-      //result.aprintf(64, " viewInstanceCount %u", viewInstanceCount);
-      //result.aprintf(64, " cullMode %u", cullMode);
-      //result.aprintf(64, " colorWriteMask %u", colorWriteMask);
-      //result.aprintf(64, " depthBias %x", *reinterpret_cast<const uint32_t *>(&depthBias));
-      //result.aprintf(64, " depthBiasSloped %x", *reinterpret_cast<const uint32_t *>(&depthBiasSloped));
-      //
-      //for (uint32_t i = 0; i < shaders::RenderState::NumIndependentBlendParameters; i++)
-      //{
-      //  result.aprintf(64, " blendParams[%d].enableBlending %u", i, blendParams[i].enableBlending);
-      //  result.aprintf(64, " blendParams[%d].blendFactors.Source %u", i, blendParams[i].blendFactors.Source);
-      //  result.aprintf(64, " blendParams[%d].blendFactors.Destination %u", i, blendParams[i].blendFactors.Destination);
-      //  result.aprintf(64, " blendParams[%d].blendAlphaFactors.Source %u", i, blendParams[i].blendAlphaFactors.Source);
-      //  result.aprintf(64, " blendParams[%d].blendAlphaFactors.Destination %u", i, blendParams[i].blendAlphaFactors.Destination);
-      //  result.aprintf(64, " blendParams[%d].blendFunction %u", i, blendParams[i].blendFunction);
-      //  result.aprintf(64, " blendParams[%d].blendAlphaFunction %u", i, blendParams[i].blendAlphaFunction);
-      //}
-      //
-      //char buf[sizeof(*this) * 2 + 1] = {};
-      //data_to_str_hex_buf(buf, sizeof(buf), this, sizeof(*this));
-      //result.aprintf(sizeof(buf) + 4, "= %s", buf);
+        // TODO: fix it
+        // result.aprintf(64, " enableDepthTest %u", enableDepthTest);
+        // result.aprintf(64, " enableDepthWrite %u", enableDepthWrite);
+        // result.aprintf(64, " enableDepthClip %u", enableDepthClip);
+        // result.aprintf(64, " enableDepthBounds %u", enableDepthBounds);
+        // result.aprintf(64, " enableStencil %u", enableStencil);
+        // result.aprintf(64, " enableIndependentBlend %u", enableIndependentBlend);
+        // result.aprintf(64, " enableAlphaToCoverage %u", enableAlphaToCoverage);
+        //
+        // result.aprintf(64, " depthFunc %u", depthFunc);
+        // result.aprintf(64, " stencilReadMask %u", stencilReadMask);
+        // result.aprintf(64, " stencilWriteMask %u", stencilWriteMask);
+        // result.aprintf(64, " stencilFunction %u", stencilFunction);
+        // result.aprintf(64, " stencilOnFail %u", stencilOnFail);
+        // result.aprintf(64, " stencilOnDepthFail %u", stencilOnDepthFail);
+        // result.aprintf(64, " stencilOnPass %u", stencilOnPass);
+        // result.aprintf(64, " forcedSampleCountShift %u", forcedSampleCountShift);
+        // result.aprintf(64, " enableConservativeRaster %u", enableConservativeRaster);
+        //
+        // result.aprintf(64, " viewInstanceCount %u", viewInstanceCount);
+        // result.aprintf(64, " cullMode %u", cullMode);
+        // result.aprintf(64, " colorWriteMask %u", colorWriteMask);
+        // result.aprintf(64, " depthBias %x", *reinterpret_cast<const uint32_t *>(&depthBias));
+        // result.aprintf(64, " depthBiasSloped %x", *reinterpret_cast<const uint32_t *>(&depthBiasSloped));
+        //
+        // for (uint32_t i = 0; i < shaders::RenderState::NumIndependentBlendParameters; i++)
+        //{
+        //  result.aprintf(64, " blendParams[%d].enableBlending %u", i, blendParams[i].enableBlending);
+        //  result.aprintf(64, " blendParams[%d].blendFactors.Source %u", i, blendParams[i].blendFactors.Source);
+        //  result.aprintf(64, " blendParams[%d].blendFactors.Destination %u", i, blendParams[i].blendFactors.Destination);
+        //  result.aprintf(64, " blendParams[%d].blendAlphaFactors.Source %u", i, blendParams[i].blendAlphaFactors.Source);
+        //  result.aprintf(64, " blendParams[%d].blendAlphaFactors.Destination %u", i, blendParams[i].blendAlphaFactors.Destination);
+        //  result.aprintf(64, " blendParams[%d].blendFunction %u", i, blendParams[i].blendFunction);
+        //  result.aprintf(64, " blendParams[%d].blendAlphaFunction %u", i, blendParams[i].blendAlphaFunction);
+        //}
+        //
+        // char buf[sizeof(*this) * 2 + 1] = {};
+        // data_to_str_hex_buf(buf, sizeof(buf), this, sizeof(*this));
+        // result.aprintf(sizeof(buf) + 4, "= %s", buf);
 
-      return result;
+        return result;
     }
 
-    nau::string toStringForPipelineName() const
+    std::string toStringForPipelineName() const
     {
-      nau::string result;
+        std::string result;
 
-      // the string is very long
-      //result.reserve(0x4000);
+        // the string is very long
+        // result.reserve(0x4000);
 
-      result = "[";
+        result = "[";
 
-      result.append(nau::string::format("enableDepthTest=%u,", enableDepthTest));
-      result.append(nau::string::format("enableDepthWrite=%u,", enableDepthWrite));
-      result.append(nau::string::format("enableDepthClip=%u,", enableDepthClip));
-      result.append(nau::string::format("enableDepthBounds=%u,", enableDepthBounds));
-      result.append(nau::string::format("enableStencil=%u,", enableStencil));
-      result.append(nau::string::format("enableIndependentBlend=%u,", enableIndependentBlend));
-      result.append(nau::string::format("enableAlphaToCoverage=%u,", enableAlphaToCoverage));
+        result.append(nau::utils::format("enableDepthTest=%u,", enableDepthTest));
+        result.append(nau::utils::format("enableDepthWrite=%u,", enableDepthWrite));
+        result.append(nau::utils::format("enableDepthClip=%u,", enableDepthClip));
+        result.append(nau::utils::format("enableDepthBounds=%u,", enableDepthBounds));
+        result.append(nau::utils::format("enableStencil=%u,", enableStencil));
+        result.append(nau::utils::format("enableIndependentBlend=%u,", enableIndependentBlend));
+        result.append(nau::utils::format("enableAlphaToCoverage=%u,", enableAlphaToCoverage));
 
-      result.append(nau::string::format("depthFunc=%u,", depthFunc));
-      result.append(nau::string::format("stencilReadMask=%u,", stencilReadMask));
-      result.append(nau::string::format("stencilWriteMask=%u,", stencilWriteMask));
-      result.append(nau::string::format("stencilFunction=%u,", stencilFunction));
-      result.append(nau::string::format("stencilOnFail=%u,", stencilOnFail));
-      result.append(nau::string::format("stencilOnDepthFail=%u,", stencilOnDepthFail));
-      result.append(nau::string::format("stencilOnPass=%u,", stencilOnPass));
-      result.append(nau::string::format("forcedSampleCountShift=%u,", forcedSampleCountShift));
-      result.append(nau::string::format("enableConservativeRaster=%u,", enableConservativeRaster));
+        result.append(nau::utils::format("depthFunc=%u,", depthFunc));
+        result.append(nau::utils::format("stencilReadMask=%u,", stencilReadMask));
+        result.append(nau::utils::format("stencilWriteMask=%u,", stencilWriteMask));
+        result.append(nau::utils::format("stencilFunction=%u,", stencilFunction));
+        result.append(nau::utils::format("stencilOnFail=%u,", stencilOnFail));
+        result.append(nau::utils::format("stencilOnDepthFail=%u,", stencilOnDepthFail));
+        result.append(nau::utils::format("stencilOnPass=%u,", stencilOnPass));
+        result.append(nau::utils::format("forcedSampleCountShift=%u,", forcedSampleCountShift));
+        result.append(nau::utils::format("enableConservativeRaster=%u,", enableConservativeRaster));
 
-      result.append(nau::string::format("viewInstanceCount=%u,", viewInstanceCount));
-      result.append(nau::string::format("cullMode=%u,", cullMode));
-      result.append(nau::string::format("colorWriteMask=%08x,", colorWriteMask));
-      result.append(nau::string::format("depthBias=%08x,", *reinterpret_cast<const uint32_t *>(&depthBias)));
-      result.append(nau::string::format("depthBiasSloped=%08x,", *reinterpret_cast<const uint32_t *>(&depthBiasSloped)));
+        result.append(nau::utils::format("viewInstanceCount=%u,", viewInstanceCount));
+        result.append(nau::utils::format("cullMode=%u,", cullMode));
+        result.append(nau::utils::format("colorWriteMask=%08x,", colorWriteMask));
+        result.append(nau::utils::format("depthBias=%08x,", *reinterpret_cast<const uint32_t*>(&depthBias)));
+        result.append(nau::utils::format("depthBiasSloped=%08x,", *reinterpret_cast<const uint32_t*>(&depthBiasSloped)));
 
-      result += "blendParams";
-      for (uint32_t i = 0; i < shaders::RenderState::NumIndependentBlendParameters; i++)
-      {
-        auto &param = blendParams[i];
-        result.append(nau::string::format("[%d][", i));
-        result.append(nau::string::format("enableBlending=%u,", param.enableBlending));
-        result.append(nau::string::format("blendFactors.Source=%u,", param.blendFactors.Source));
-        result.append(nau::string::format("blendFactors.Destination=%u,", param.blendFactors.Destination));
-        result.append(nau::string::format("blendAlphaFactors.Source=%u,", param.blendAlphaFactors.Source));
-        result.append(nau::string::format("blendAlphaFactors.Destination=%u,", param.blendAlphaFactors.Destination));
-        result.append(nau::string::format("blendFunction=%u,", param.blendFunction));
-        result.append(nau::string::format("blendAlphaFunction=%u", param.blendAlphaFunction));
-        result += "]";
-      }
+        result += "blendParams";
+        for (uint32_t i = 0; i < shaders::RenderState::NumIndependentBlendParameters; i++)
+        {
+            auto& param = blendParams[i];
+            result.append(nau::utils::format("[%d][", i));
+            result.append(nau::utils::format("enableBlending=%u,", param.enableBlending));
+            result.append(nau::utils::format("blendFactors.Source=%u,", param.blendFactors.Source));
+            result.append(nau::utils::format("blendFactors.Destination=%u,", param.blendFactors.Destination));
+            result.append(nau::utils::format("blendAlphaFactors.Source=%u,", param.blendAlphaFactors.Source));
+            result.append(nau::utils::format("blendAlphaFactors.Destination=%u,", param.blendAlphaFactors.Destination));
+            result.append(nau::utils::format("blendFunction=%u,", param.blendFunction));
+            result.append(nau::utils::format("blendAlphaFunction=%u", param.blendAlphaFunction));
+            result += "]";
+        }
 
       result += "]";
 

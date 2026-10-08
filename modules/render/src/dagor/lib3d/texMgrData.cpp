@@ -239,20 +239,20 @@ unsigned (*tql::get_tex_lfu)(TEXTUREID texId) = &no_tex_lfu;
 TexQL (*tql::get_tex_cur_ql)(TEXTUREID texId) = &no_tex_cur_ql;
 bool (*tql::check_texture_id_valid)(TEXTUREID texId) = &texture_id_always_valid;
 
-static const char *return_tex_info(TEXTUREID texId, bool /*verbose*/, nau::string &tmp_stor)
+static const char* return_tex_info(TEXTUREID texId, bool /*verbose*/, std::string& tmp_stor)
 {
   if (!RMGR.isValidID(texId, nullptr))
     return "";
 
   int idx = texId.index();
-  //tmp_stor = nau::string::format("  LFU=%d req=%X/%X  desc=0x%04X ld=%X rd=%X max=%X(%X/%X) rc=%d bt.rc=%d ql=%d(%d) gpu=%dK(+%dK) bd=%dK",
-  //  RMGR.getResLFU(idx), RMGR.resQS[idx].getMaxReqLev(), RMGR.maxReqLevelPrev[idx], RMGR.levDesc[idx], RMGR.resQS[idx].getLdLev(),
-  //  RMGR.resQS[idx].getRdLev(), RMGR.texDesc[idx].dim.maxLev, RMGR.resQS[idx].getQLev(), RMGR.resQS[idx].getMaxLev(),
-  //  RMGR.getRefCount(idx), RMGR.getBaseTexUsedCount(idx), RMGR.resQS[idx].getCurQL(), RMGR.resQS[idx].getMaxQL(),
-  //  RMGR.getTexMemSize4K(idx) * 4, RMGR.getTexAddMemSizeNeeded4K(idx) * 4, RMGR.getTexBaseDataSize(idx) >> 10);
+  // tmp_stor = nau::utils::format("  LFU=%d req=%X/%X  desc=0x%04X ld=%X rd=%X max=%X(%X/%X) rc=%d bt.rc=%d ql=%d(%d) gpu=%dK(+%dK) bd=%dK",
+  //   RMGR.getResLFU(idx), RMGR.resQS[idx].getMaxReqLev(), RMGR.maxReqLevelPrev[idx], RMGR.levDesc[idx], RMGR.resQS[idx].getLdLev(),
+  //   RMGR.resQS[idx].getRdLev(), RMGR.texDesc[idx].dim.maxLev, RMGR.resQS[idx].getQLev(), RMGR.resQS[idx].getMaxLev(),
+  //   RMGR.getRefCount(idx), RMGR.getBaseTexUsedCount(idx), RMGR.resQS[idx].getCurQL(), RMGR.resQS[idx].getMaxQL(),
+  //   RMGR.getTexMemSize4K(idx) * 4, RMGR.getTexAddMemSizeNeeded4K(idx) * 4, RMGR.getTexBaseDataSize(idx) >> 10);
   return (const char*)tmp_stor.c_str();
 }
-const char *(*tql::get_tex_info)(TEXTUREID, bool, nau::string &) = &return_tex_info;
+const char* (*tql::get_tex_info)(TEXTUREID, bool, std::string&) = &return_tex_info;
 
 static void dump_tex_state_base(TEXTUREID idx) { RMGR.dumpTexState(idx.index()); }
 

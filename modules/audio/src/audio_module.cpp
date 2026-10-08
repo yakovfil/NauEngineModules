@@ -16,15 +16,14 @@ NAU_AUDIO_BEGIN
 
 class AudioModule : public IModule
 {
-    string getModuleName() override;
+    std::string getModuleName() override;
 
     void initialize() override;
     void deinitialize() override;
     void postInit() override;
 };
 
-
-string AudioModule::getModuleName()
+std::string AudioModule::getModuleName()
 {
     return "nau.audio";
 }

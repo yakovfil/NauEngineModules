@@ -64,7 +64,7 @@ struct D3dInterfaceTable
   bool (*stretch_rect_0)(BaseTexture *src, BaseTexture *dst, nau::math::RectInt *rsrc, nau::math::RectInt *rdst);
   bool (*copy_from_current_render_target)(BaseTexture *to_tex);
 
-  void (*get_texture_statistics)(uint32_t *num_textures, uint64_t *total_mem, nau::string *out_dump);
+  void (*get_texture_statistics)(uint32_t* num_textures, uint64_t* total_mem, std::string* out_dump);
 
   d3d::SamplerHandle (*create_sampler)(const d3d::SamplerInfo &sampler_info);
   void (*destroy_sampler)(d3d::SamplerHandle sampler);
@@ -256,7 +256,7 @@ struct D3dInterfaceTable
   bool (*set_capture_full_frame_buffer)(bool ison);
   unsigned (*get_texture_format)(BaseTexture *tex);
   const char *(*get_texture_format_str)(BaseTexture *tex);
-  void (*get_video_modes_list)(std::vector<nau::string>& list);
+  void (*get_video_modes_list)(std::vector<std::string>& list);
   PROGRAM (*get_debug_program)();
   void (*beginEvent)(const char *s);
   void (*endEvent)();

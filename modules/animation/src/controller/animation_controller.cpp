@@ -15,8 +15,8 @@ namespace nau::animation
     {
     }
 
-    AnimationController::AnimInstanceDescriptor::AnimInstanceDescriptor(nau::string animName)
-        : name(animName.tostring())
+    AnimationController::AnimInstanceDescriptor::AnimInstanceDescriptor(std::string animName) :
+        name(animName)
     {
     }
 

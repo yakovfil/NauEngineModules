@@ -10,6 +10,7 @@
 #include <memory>
 #include <span>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <type_traits>
 #include <unordered_set>
@@ -25,7 +26,8 @@
 #include "nau/dxil/utility.h"
 #include "nau/generic/dag_bitset.h"
 #include "nau/osApiWrappers/dag_rwLock.h"
-#include "nau/string/string.h"
+#include "nau/string/format.h"
+#include "nau/string/string_conv.h"
 #include "nau/threading/critical_section.h"
 #include "nau/threading/dag_atomic.h"
 #include "nau/utils/dag_hashedKeyMap.h"
@@ -277,7 +279,7 @@ struct StageShaderModuleHeader
 {
   ShaderIdentifier ident = {};
   dxil::ShaderHeader header = {};
-  nau::string debugName;
+  std::string debugName;
 };
 
 struct StageShaderModule : StageShaderModuleHeader
@@ -1539,33 +1541,33 @@ public:
     }
   }
 
-  nau::string_view getShaderClassName(uint32_t group, uint32_t class_index) const
+  std::string_view getShaderClassName(uint32_t group, uint32_t class_index) const
   {
     if (group >= max_scripted_shaders_bin_groups)
     {
-        nau::string tmp = "<group index out of range>";
-      return nau::string_view(tmp);
+        std::string tmp = "<group index out of range>";
+        return std::string_view(tmp);
     }
     if (!dumps[group].owner)
     {
-        nau::string tmp = "<dump owner was null>";
-      return nau::string_view(tmp);
+        std::string tmp = "<dump owner was null>";
+        return std::string_view(tmp);
     }
     auto v2 = dumps[group].owner->getDumpV2();
     if (!v2)
     {
-      nau::string tmp = "<dump v2 was null>";
-      return nau::string_view(tmp);
+        std::string tmp = "<dump v2 was null>";
+        return std::string_view(tmp);
     }
     if (class_index >= v2->classes.size())
     {
-      nau::string tmp = "<class index out of range>";
-      return nau::string_view(tmp);
+        std::string tmp = "<class index out of range>";
+        return std::string_view(tmp);
     }
 
     auto &name = v2->classes[class_index].name;
-    nau::string tmp = nau::string(static_cast<const char *>(name.data()));
-    return nau::string_view(tmp);
+    std::string tmp = std::string(static_cast<const char*>(name.data()));
+    return std::string_view(tmp);
   }
 
   struct ShaderInGroupIndex
@@ -1768,7 +1770,7 @@ struct VertexShaderModuleHeader
   dxil::HashValue hash = {};
   dxil::ShaderHeader header = {};
   std::unique_ptr<dxil::ShaderHeader[]> subShaders;
-  nau::string debugName;
+  std::string debugName;
   bool hasGsOrAs : 1;
   bool hasDsAndHs : 1;
 
@@ -1779,7 +1781,7 @@ struct PixelShaderModuleHeader
 {
   dxil::HashValue hash = {};
   dxil::ShaderHeader header = {};
-  nau::string debugName;
+  std::string debugName;
 };
 
 struct VertexShaderModuleRefStore
@@ -1828,7 +1830,7 @@ class PipelineNameGenerator : public ScriptedShadersBinDumpManager
 {
   using BaseType = ScriptedShadersBinDumpManager;
 
-  void iterateShaderClassesForComputeShader(const dxil::HashValue &hash, nau::string &out_name)
+  void iterateShaderClassesForComputeShader(const dxil::HashValue& hash, std::string& out_name)
   {
     auto [group, index] = findComputeShader(0, hash);
     if (group >= max_scripted_shaders_bin_groups)
@@ -1866,7 +1868,7 @@ class PipelineNameGenerator : public ScriptedShadersBinDumpManager
     }
   }
 
-  bool decodeCode(ScriptedShadersBinDumpV2 *v2, const shaderbindump::VariantTable &variants, uint32_t code, nau::string &target)
+  bool decodeCode(ScriptedShadersBinDumpV2* v2, const shaderbindump::VariantTable& variants, uint32_t code, std::string& target)
   {
     if (0 == variants.codePieces.size())
     {
@@ -1886,8 +1888,8 @@ class PipelineNameGenerator : public ScriptedShadersBinDumpManager
       auto &interval = v2->intervals[intervalID];
       auto value = (code / intervalMul) % interval.getValCount();
       auto& temp = v2->varMap[interval.nameId];
-      nau::string tempString = nau::string(temp);
-      nau::string_view name = nau::string_view(tempString);
+      std::string tempString = std::string(temp);
+      std::string_view name = std::string_view(tempString);
       target.append(name);
       target += "=";
       char buf[64];
@@ -1900,8 +1902,7 @@ class PipelineNameGenerator : public ScriptedShadersBinDumpManager
     return true;
   }
 
-  void decodeShaderClassIntoString(ScriptedShadersBinDumpV2 *v2, const shaderbindump::ShaderClass &shader_class, uint32_t static_code,
-    uint32_t dynamic_code, nau::string &target)
+  void decodeShaderClassIntoString(ScriptedShadersBinDumpV2* v2, const shaderbindump::ShaderClass& shader_class, uint32_t static_code, uint32_t dynamic_code, std::string& target)
   {
     // size included null terminator
     target.append(static_cast<const char *>(shader_class.name));//, shader_class.name.size() - 1);
@@ -1913,8 +1914,7 @@ class PipelineNameGenerator : public ScriptedShadersBinDumpManager
     // auto dynamicVariantIndex = staticVariant.dynVariants.findVariant(dynamic_code);
   }
 
-  void generateNamesForShaderClassCodes(ScriptedShadersBinDumpV2 *v2, const shaderbindump::ShaderClass &shader_class,
-    uint32_t static_code, uint32_t dynamic_code, nau::string_view post_fix, nau::string_view post_fix_2, nau::string &out_name)
+  void generateNamesForShaderClassCodes(ScriptedShadersBinDumpV2* v2, const shaderbindump::ShaderClass& shader_class, uint32_t static_code, uint32_t dynamic_code, std::string_view post_fix, std::string_view post_fix_2, std::string& out_name)
   {
     auto &sVar = shader_class.code[static_code];
 
@@ -1934,8 +1934,7 @@ class PipelineNameGenerator : public ScriptedShadersBinDumpManager
   }
 
   template <typename T>
-  uint32_t generateNamesForMatchingRenderPasses(uint32_t group, nau::string post_fix, nau::string post_fix_2,
-    nau::string &out_name, T clb)
+  uint32_t generateNamesForMatchingRenderPasses(uint32_t group, std::string post_fix, std::string post_fix_2, std::string& out_name, T clb)
   {
     uint32_t visitCount = 0;
     auto v2 = getDump(group)->getDumpV2();
@@ -1965,11 +1964,12 @@ class PipelineNameGenerator : public ScriptedShadersBinDumpManager
     return visitCount;
   }
 
-  void iterateShaderClassesForGraphicsShadersWithNullPixelShader(const dxil::HashValue &vertex_shader,
-    const RenderStateSystem::StaticState &static_state, nau::string &out_name)
+  void iterateShaderClassesForGraphicsShadersWithNullPixelShader(const dxil::HashValue& vertex_shader,
+                                                                 const RenderStateSystem::StaticState& static_state,
+                                                                 std::string& out_name)
   {
     auto renderStateStringView = static_state.toStringForPipelineName();
-    //nau::string renderStateStringView = nau::string(renderStateString.c_str());
+    // std::string renderStateStringView = std::string(renderStateString.c_str());
 
     uint32_t totalCount = 0;
     uint32_t lastGroup = 0;
@@ -2063,11 +2063,10 @@ class PipelineNameGenerator : public ScriptedShadersBinDumpManager
     }
   }
 
-  void iterateShaderClassesForGraphicsShaders(const dxil::HashValue &vertex_shader, const dxil::HashValue &pixel_shader,
-    const RenderStateSystem::StaticState &static_state, nau::string &out_name)
+  void iterateShaderClassesForGraphicsShaders(const dxil::HashValue& vertex_shader, const dxil::HashValue& pixel_shader, const RenderStateSystem::StaticState& static_state, std::string& out_name)
   {
     auto renderStateStringView = static_state.toStringForPipelineName();
-    //nau::string renderStateStringView{renderStateString.c_str()};
+    // std::string renderStateStringView{renderStateString.c_str()};
 
     uint32_t totalCount = 0;
     uint32_t lastGroup = 0;
@@ -2239,61 +2238,62 @@ class PipelineNameGenerator : public ScriptedShadersBinDumpManager
   }
 
 public:
-  nau::string generateComputePipelineName(const ComputeShaderModule &module)
-  {
-    nau::string outName;
-    iterateShaderClassesForComputeShader(module.ident.shaderHash, outName);
-
-    if (outName.empty() && !module.debugName.empty())
+    std::string generateComputePipelineName(const ComputeShaderModule& module)
     {
-      outName = module.debugName;
+        std::string outName;
+        iterateShaderClassesForComputeShader(module.ident.shaderHash, outName);
+
+        if (outName.empty() && !module.debugName.empty())
+        {
+            outName = module.debugName;
+        }
+
+        if (outName.empty())
+        {
+            // so engine gave it no name and we were unable to locate it in the bin dumps, we give it a hash name then
+            std::string eaName;
+            eaName.resize(sizeof(dxil::HashValue) * 2, ' ');
+            module.ident.shaderHash.convertToString((char*)eaName.data(), eaName.size() + 1);
+            outName = eaName.c_str();  // TODO: remove this after we move to std::string's in render module
+        }
+
+        return outName;
     }
 
-    if (outName.empty())
+    std::string generateGraphicsPipelineName(const VertexShaderModuleRefStore& vertex_shader,
+                                             const PixelShaderModuleRefStore& pixel_shader,
+                                             const RenderStateSystem::StaticState& static_state)
     {
-      // so engine gave it no name and we were unable to locate it in the bin dumps, we give it a hash name then
-      std::string eaName;
-      eaName.resize(sizeof(dxil::HashValue) * 2, ' ');
-      module.ident.shaderHash.convertToString((char*)eaName.data(), eaName.size() + 1);
-      outName = eaName.c_str();  // TODO: remove this after we move to std::string's in render module
-    }
+        std::string outName;
+        if (isNullPixelShader(pixel_shader))
+        {
+            iterateShaderClassesForGraphicsShadersWithNullPixelShader(vertex_shader.header.hash, static_state, outName);
+        }
+        else
+        {
+            iterateShaderClassesForGraphicsShaders(vertex_shader.header.hash, pixel_shader.header.hash, static_state, outName);
+        }
 
-    return outName;
-  }
+        if (outName.empty())
+        {
+            outName = "NotInDump={";
+            char buf[sizeof(dxil::HashValue) * 2 + 1];
+            vertex_shader.header.hash.convertToString(buf, sizeof(buf));
+            outName += buf;
+            bool isRaw = std::holds_alternative<VertexShaderModuleBytecodeRef>(vertex_shader.bytecode);
+            outName += isRaw ? "[raw]" : "[dump]";
+            outName += "}{";
+            pixel_shader.header.hash.convertToString(buf, sizeof(buf));
+            outName += buf;
+            isRaw = std::holds_alternative<PixelShaderModuleBytecodeRef>(pixel_shader.bytecode);
+            outName += isRaw ? "[raw]" : "[dump]";
+            outName += "}";
+            // auto stateText = static_state.toString(); // TODO: fix it
+            // outName += stateText;
+        }
 
-  nau::string generateGraphicsPipelineName(const VertexShaderModuleRefStore &vertex_shader,
-    const PixelShaderModuleRefStore &pixel_shader, const RenderStateSystem::StaticState &static_state)
-  {
-    nau::string outName;
-    if (isNullPixelShader(pixel_shader))
-    {
-      iterateShaderClassesForGraphicsShadersWithNullPixelShader(vertex_shader.header.hash, static_state, outName);
+        return outName;
     }
-    else
-    {
-      iterateShaderClassesForGraphicsShaders(vertex_shader.header.hash, pixel_shader.header.hash, static_state, outName);
-    }
-
-    if (outName.empty())
-    {
-      outName = "NotInDump={";
-      char buf[sizeof(dxil::HashValue) * 2 + 1];
-      vertex_shader.header.hash.convertToString(buf, sizeof(buf));
-      outName += buf;
-      bool isRaw = std::holds_alternative<VertexShaderModuleBytecodeRef>(vertex_shader.bytecode);
-      outName += isRaw ? "[raw]" : "[dump]";
-      outName += "}{";
-      pixel_shader.header.hash.convertToString(buf, sizeof(buf));
-      outName += buf;
-      isRaw = std::holds_alternative<PixelShaderModuleBytecodeRef>(pixel_shader.bytecode);
-      outName += isRaw ? "[raw]" : "[dump]";
-      outName += "}";
-      //auto stateText = static_state.toString(); // TODO: fix it
-      //outName += stateText;
-    }
-
-    return outName;
-  }
 };
 
 class ShaderModuleManager : public PipelineNameGenerator

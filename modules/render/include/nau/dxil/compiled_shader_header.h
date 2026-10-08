@@ -4,11 +4,14 @@
 #pragma once
 
 // #include <generic/dag_tab.h>
+#include <string>
+#include <string_view>
 #include <vector>
 
 #include "nau/3d/shader_header.h"
 #include "nau/shaders/dag_shaderHash.h"
-#include "nau/string/string.h"
+#include "nau/string/format.h"
+#include "nau/string/string_conv.h"
 #include "nau/util/dag_bindump_ext.h"
 
 namespace dxil
@@ -73,7 +76,7 @@ struct ShaderHeaderCompileResult
   ShaderHeader header = {};
   ComputeShaderInfo computeShaderInfo = {};
   bool isOk = true;
-  nau::string logMessage;
+  std::string logMessage;
 };
 
 struct SemanticInfo

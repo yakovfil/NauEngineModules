@@ -23,7 +23,7 @@
 using namespace gpu;
 
 #if _TARGET_PC_MACOSX
-extern bool mac_get_model(nau::string &out_str);
+extern bool mac_get_model(std::string& out_str);
 extern bool mac_is_web_gpu_driver();
 #endif
 
@@ -192,7 +192,7 @@ static bool verify_ati_settings(int active_vendor, const GpuVideoSettings &video
   }
 
   HKEY hUmdKey;
-  nau::string keyPathUmd = nau::string::format(1000, "SYSTEM\\CurrentControlSet\\Control\\Class\\%s\\UMD", adapterInfo[adapterNo].strDriverPathExt);
+  std::string keyPathUmd = nau::utils::format("SYSTEM\\CurrentControlSet\\Control\\Class\\%s\\UMD", adapterInfo[adapterNo].strDriverPathExt);
   if(RegOpenKeyEx(HKEY_LOCAL_MACHINE, (const char*)keyPathUmd.c_str(), 0, KEY_READ, &hUmdKey) != ERROR_SUCCESS)
   {
     delete[] adapterInfo;
@@ -431,15 +431,14 @@ static void check_nvidia_driver(const GpuVideoSettings &video, const char *gpu_d
   }
 
 #if _TARGET_PC_MACOSX
-  nau::string macModel;
+  std::string macModel;
   bool macWebDriver = mac_is_web_gpu_driver();
   mac_get_model(macModel);
   NAU_LOG_DEBUG("Mac nvidia check: model={} web driver={} code={}{}{}{}", macModel.str(), macWebDriver, _DUMP4C(video.drvCode.asFourCC()));
 #endif
 }
 
-static void check_gpu_driver(const GpuVideoSettings &video, int active_vendor, const nau::string &gpu_desc, const uint32_t driver_version[],
-  const nau::hal::DagorDateTime &driver_date, GpuDriverConfig &out_cfg)
+static void check_gpu_driver(const GpuVideoSettings& video, int active_vendor, const std::string& gpu_desc, const uint32_t driver_version[], const nau::hal::DagorDateTime& driver_date, GpuDriverConfig& out_cfg)
 {
   if (video.ignoreOutdatedDriver)
     return;
@@ -576,14 +575,14 @@ void d3d_apply_gpu_settings(const GpuVideoSettings &video)
   if (video.drvCode.is(d3d::windows && (d3d::dx12 || d3d::vulkan)))
     return;
 
-  nau::string gpuDescription;
+  std::string gpuDescription;
   nau::hal::DagorDateTime gpuDriverDate = {0};
   int activeVendor =
     d3d::guess_gpu_vendor(&gpuDescription, gpu_driver_config.driverVersion, &gpuDriverDate, &gpu_driver_config.deviceId);
   //gpuDescription.toLower();
 
   /////// TODO: remove ugly code
-  std::string tempStr = gpuDescription.tostring();
+  std::string tempStr = gpuDescription;
   std::transform(tempStr.begin(), tempStr.end(), tempStr.begin(), [](unsigned char c)
   {
       return static_cast<char>(std::tolower(c));
@@ -640,23 +639,23 @@ void d3d_apply_gpu_settings(const GpuVideoSettings &video)
 
   for (int oldHardwareNo = 0; oldHardwareNo < video.oldHardwareList.size() && !gpu_driver_config.oldHardware; ++oldHardwareNo)
   {
-    //TODO: fix it
-    //const nau::string &oldHardware = video.oldHardwareList[oldHardwareNo];
-    //const nau::string gpuDesc = gpuDescription;//.replace("(tm)", "").replace("(r)", "");
-    //int hwLen = oldHardware.length();
-    //if (!hwLen)
-    //  continue;
-    //bool strictTerm = oldHardware[hwLen - 1] != '$';
-    //if (!strictTerm)
-    //{
-    //  const char *first = strstr(gpuDesc.str(), nau::string(oldHardware.str(), hwLen - 1).str());
-    //  if (!first)
-    //    continue;
-    //}
-    //else if (!gpuDesc.suffix(oldHardware.str()))
-    //  continue;
-    //gpu_driver_config.oldHardware = true;
-    //NAU_LOG_DEBUG("oldHardware found for {} from {}", oldHardware.str(), gpuDescription.str());
+      // TODO: fix it
+      // const std::string &oldHardware = video.oldHardwareList[oldHardwareNo];
+      // const std::string gpuDesc = gpuDescription;//.replace("(tm)", "").replace("(r)", "");
+      // int hwLen = oldHardware.length();
+      // if (!hwLen)
+      //   continue;
+      // bool strictTerm = oldHardware[hwLen - 1] != '$';
+      // if (!strictTerm)
+      //{
+      //   const char *first = strstr(gpuDesc.str(), std::string(oldHardware.str(), hwLen - 1).str());
+      //   if (!first)
+      //     continue;
+      // }
+      // else if (!gpuDesc.suffix(oldHardware.str()))
+      //   continue;
+      // gpu_driver_config.oldHardware = true;
+      // NAU_LOG_DEBUG("oldHardware found for {} from {}", oldHardware.str(), gpuDescription.str());
   }
 
   // Count systems with only DX10 support for statistics.
@@ -707,7 +706,7 @@ void d3d_read_gpu_video_settings(const nau::DataBlock &blk, GpuVideoSettings &ou
     //out_video.oldHardwareList[oldHardwareNo].toLower();
 
       /////// TODO: remove ugly code
-    std::string tempStr = out_video.oldHardwareList[oldHardwareNo].tostring();
+    std::string tempStr = out_video.oldHardwareList[oldHardwareNo];
     std::transform(tempStr.begin(), tempStr.end(), tempStr.begin(), [](unsigned char c)
     {
         return static_cast<char>(std::tolower(c));
@@ -741,7 +740,7 @@ const GpuUserConfig &d3d_get_gpu_cfg()
 
 const GpuDriverConfig &get_gpu_driver_cfg() { return gpu_driver_config; }
 
-nau::string GpuUserConfig::generateDriverVersionString() const
+std::string GpuUserConfig::generateDriverVersionString() const
 {
-  return nau::string::format("%d.%d.%d.%d", driverVersion[0], driverVersion[1], driverVersion[2], driverVersion[3]); //(0, "%d.%d.%d.%d", driverVersion[0], driverVersion[1], driverVersion[2], driverVersion[3]);
+    return nau::utils::format("%d.%d.%d.%d", driverVersion[0], driverVersion[1], driverVersion[2], driverVersion[3]);  //(0, "%d.%d.%d.%d", driverVersion[0], driverVersion[1], driverVersion[2], driverVersion[3]);
 }

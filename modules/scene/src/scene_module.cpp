@@ -23,7 +23,7 @@ namespace nau::scene
      */
     class SceneModule : public DefaultModuleImpl
     {
-        string getModuleName() override
+        std::string getModuleName() override
         {
             return "nau.scene";
         }

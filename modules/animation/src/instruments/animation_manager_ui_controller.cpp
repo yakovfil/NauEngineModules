@@ -51,7 +51,7 @@ namespace nau::animation
             }
         }
 
-        nau::string formatComponentTitle(const auto& components, int index)
+        std::string formatComponentTitle(const auto& components, int index)
         {
             if (0 <= index && index < components.size())
             {
@@ -301,11 +301,11 @@ namespace nau::animation
                             }
                         }
 
-                        if (ImGui::BeginCombo("Objects", formatComponentTitle(existingComponents, m_selectedAnimComponentIndex).tostring().c_str()))
+                        if (ImGui::BeginCombo("Objects", formatComponentTitle(existingComponents, m_selectedAnimComponentIndex).c_str()))
                         {
                             for (int componentIndex = 0; componentIndex < existingComponents.size(); ++componentIndex)
                             {
-                                if (ImGui::Selectable(formatComponentTitle(existingComponents, componentIndex).tostring().c_str(), componentIndex == m_selectedAnimComponentIndex))
+                                if (ImGui::Selectable(formatComponentTitle(existingComponents, componentIndex).c_str(), componentIndex == m_selectedAnimComponentIndex))
                                 {
                                     m_selectedAnimComponentIndex = componentIndex;
                                     m_selectedTrackIndex = -1;
@@ -341,11 +341,11 @@ namespace nau::animation
 
                     ImGui::Checkbox("Debug Skeleton", &SkeletonComponent::drawDebugSkeletons);
 
-                    if (ImGui::BeginCombo("Skeletons", formatComponentTitle(existingAnimatedSkeletons, m_selectedSkeletonComponentIndex).tostring().c_str()))
+                    if (ImGui::BeginCombo("Skeletons", formatComponentTitle(existingAnimatedSkeletons, m_selectedSkeletonComponentIndex).c_str()))
                     {
                         for (int componentIndex = 0; componentIndex < existingAnimatedSkeletons.size(); ++componentIndex)
                         {
-                            if (ImGui::Selectable(formatComponentTitle(existingAnimatedSkeletons, componentIndex).tostring().c_str(), componentIndex == m_selectedSkeletonComponentIndex))
+                            if (ImGui::Selectable(formatComponentTitle(existingAnimatedSkeletons, componentIndex).c_str(), componentIndex == m_selectedSkeletonComponentIndex))
                             {
                                 m_selectedSkeletonComponentIndex = componentIndex;
                             }

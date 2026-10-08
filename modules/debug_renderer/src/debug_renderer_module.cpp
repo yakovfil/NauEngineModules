@@ -12,9 +12,9 @@ namespace nau
     struct DebugRendererModule : nau::IModule
     {
         // Inherited via IModule
-        nau::string getModuleName() override
+        std::string getModuleName() override
         {
-            return nau::string("DebugRenderer");
+            return std::string("DebugRenderer");
         }
         void initialize() override
         {

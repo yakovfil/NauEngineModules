@@ -42,7 +42,7 @@ namespace drv3d_dx12
 {
 // pix has some issues to properly display the object listing when names are too long
 // so we have to shorten long ones to a fixed max
-inline void shorten_name_for_pix(nau::string &name)
+inline void shorten_name_for_pix(std::string& name)
 {
   constexpr size_t max_length = 256;
   if (name.length() > max_length)

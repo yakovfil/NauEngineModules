@@ -3,12 +3,15 @@
 // Copyright (C) 2024  Gaijin Games KFT.  All rights reserved
 #pragma once
 
+#include <string>
+#include <string_view>
 #include <vector>
 
 #include "nau/3d/dag_resId.h"
 #include "nau/3d/ddsxTex.h"
 #include "nau/startup/dag_globalSettings.h"
-#include "nau/string/string.h"
+#include "nau/string/format.h"
+#include "nau/string/string_conv.h"
 
 ///////////////////////////////// TEMP ////////////////////////////////
 template <class V, class T1, typename U = typename V::value_type>
@@ -46,7 +49,7 @@ extern void (*on_frame_finished)();
 extern unsigned (*get_tex_lfu)(TEXTUREID texId);
 extern TexQL (*get_tex_cur_ql)(TEXTUREID texId);
 extern bool (*check_texture_id_valid)(TEXTUREID texId);
-extern const char *(*get_tex_info)(TEXTUREID texId, bool verbose, nau::string &tmp_stor);
+extern const char* (*get_tex_info)(TEXTUREID texId, bool verbose, std::string& tmp_stor);
 extern void (*dump_tex_state)(TEXTUREID idx);
 
 extern void get_tex_streaming_stats(int &_mem_used_discardable_kb, int &_mem_used_persistent_kb, int &_mem_used_discardable_kb_max,

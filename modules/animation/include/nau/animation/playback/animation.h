@@ -108,8 +108,8 @@ namespace nau::animation
          * 
          * @todo Change identifier string representation to UID.
          */
-        nau::string animInstanceName;
-        
+        std::string animInstanceName;
+
         /**
          * @brief Animation weight that is regarded as its relative contribution to the resulted value of the animated parameter when accumulating (blending) influences from multiple animations.
          * 

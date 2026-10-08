@@ -11,12 +11,15 @@
 #include <iterator>
 #include <limits>
 #include <memory>
+#include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "ecsPerformQueryInline.h"
 #include "nau/async/task.h"
-#include "nau/string/string.h"
+#include "nau/string/format.h"
+#include "nau/string/string_conv.h"
 #include "nau/utils/inline_vector.h"
 #include "nau/utils/sorted_vector.h"
 

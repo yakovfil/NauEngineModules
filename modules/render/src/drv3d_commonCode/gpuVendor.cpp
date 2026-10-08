@@ -4,8 +4,12 @@
 
 #include "gpuVendor.h"
 //#include <util/dag_globDef.h>
-#include "nau/string/string.h"
+#include <string>
+#include <string_view>
+
 #include "nau/diag/logging.h"
+#include "nau/string/format.h"
+#include "nau/string/string_conv.h"
 
 #if _TARGET_PC_WIN
 
@@ -217,7 +221,7 @@ void gpu::close_ati()
   atiDLL = NULL;
 }
 
-void gpu::get_video_ati_str(nau::string &out_str)
+void gpu::get_video_ati_str(std::string& out_str)
 {
   if (!init_ati())
     return;
@@ -269,7 +273,7 @@ void gpu::get_video_ati_str(nau::string &out_str)
   }
 
   HKEY hBaseKey, hUmdKey;
-  nau::string keyPathBase = nau::string::format("SYSTEM\\CurrentControlSet\\Control\\Class\\%s", adapterInfo[adapterNo].strDriverPathExt); //(1000, "SYSTEM\\CurrentControlSet\\Control\\Class\\%s", adapterInfo[adapterNo].strDriverPathExt);
+  std::string keyPathBase = nau::utils::format("SYSTEM\\CurrentControlSet\\Control\\Class\\%s", adapterInfo[adapterNo].strDriverPathExt);  //(1000, "SYSTEM\\CurrentControlSet\\Control\\Class\\%s", adapterInfo[adapterNo].strDriverPathExt);
   if(::RegOpenKeyEx(HKEY_LOCAL_MACHINE, (const char*)keyPathBase.c_str(), 0, KEY_READ, &hBaseKey) != ERROR_SUCCESS)
   {
     NAU_LOG_DEBUG("Failed to open '{}'", keyPathBase);
@@ -299,10 +303,10 @@ void gpu::get_video_ati_str(nau::string &out_str)
 
   unsigned int memSize = (unsigned int)(memoryInfo.iMemorySize / 1024 / 1024);
 
-  out_str = nau::string::format(128, "%s, ver: %s (%s), %d MB %s (%d GB/s), %d MHz / %d MHz, GPUs: %d%s%s", adapterInfo[adapterNo].strAdapterName,
-    catalystVersion, releaseVersion, memSize, memoryInfo.strMemoryType, (unsigned int)memoryInfo.iMemoryBandwidth / 1000,
-    activity.iEngineClock / 100, activity.iMemoryClock / 100, mgpuCount, mgpuCount > 1 ? ", crossfire" : "",
-    platform == 1 ? ", notebook" : "");
+  out_str = nau::utils::format("%s, ver: %s (%s), %d MB %s (%d GB/s), %d MHz / %d MHz, GPUs: %d%s%s", adapterInfo[adapterNo].strAdapterName,
+                               catalystVersion, releaseVersion, memSize, memoryInfo.strMemoryType, (unsigned int)memoryInfo.iMemoryBandwidth / 1000,
+                               activity.iEngineClock / 100, activity.iMemoryClock / 100, mgpuCount, mgpuCount > 1 ? ", crossfire" : "",
+                               platform == 1 ? ", notebook" : "");
 
   RegCloseKey(hBaseKey);
   delete[] adapterInfo;

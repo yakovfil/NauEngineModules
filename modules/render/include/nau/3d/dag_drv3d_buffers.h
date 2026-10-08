@@ -102,7 +102,7 @@ inline uint32_t cb_struct_reg_count()
  */
 inline Sbuffer *create_persistent_cb(uint32_t registers_count, const char *name)
 {
-    return d3d::create_sbuffer(CBUFFER_REGISTER_SIZE, registers_count, SBCF_CB_PERSISTENT, 0, reinterpret_cast<const char8_t*>(name));  // TODO: change all nau::string to std::string and all char8_t to char in render module
+    return d3d::create_sbuffer(CBUFFER_REGISTER_SIZE, registers_count, SBCF_CB_PERSISTENT, 0, reinterpret_cast<const char8_t*>(name));  // TODO: change all std::string to std::string and all char8_t to char in render module
 }
 
 /**

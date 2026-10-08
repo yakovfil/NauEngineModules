@@ -17,7 +17,7 @@ namespace nau
      */
     class AnimationModule : public DefaultModuleImpl
     {
-        string getModuleName() override
+        std::string getModuleName() override
         {
             return "nau.animation";
         }

@@ -278,11 +278,11 @@ protected:
 
       result = adoptBufferHeap(std::move(newHeap));
 
-      nau::string str;
+      std::string str;
       if (!name)
       {
-        str = nau::string::format("Buffer#{}", result.index());
-        name = str.c_str();
+          str = nau::utils::format("Buffer#{}", result.index());
+          name = reinterpret_cast<const char8_t*>(str.c_str());
       }
       manager->recordBufferHeapAllocated(allocation_size, !properties.isCPUVisible(), name);
       manager->updateMemoryRangeUse(allocation, result);

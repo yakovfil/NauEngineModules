@@ -24,10 +24,13 @@
 #include "nau/dag_ioSys/dag_memIo.h"
 //#include <memory/dag_framemem.h>
 #include <algorithm>
+#include <string>
+#include <string_view>
 
 #include "nau/diag/logging.h"
 #include "nau/startup/dag_globalSettings.h"
-#include "nau/string/string.h"
+#include "nau/string/format.h"
+#include "nau/string/string_conv.h"
 
 bool get_settings_resolution(int &width, int &height, bool &is_retina, int def_width, int def_height, bool &out_is_auto)
 {
@@ -463,7 +466,7 @@ int set_display_device_mode(bool inwin, int res_x, int res_y, int scr_bpp, DEVMO
   return 1;
 }
 
-bool get_monitor_info(const char *monitorName, nau::string* friendlyMonitorName, int *uniqueIndex)
+bool get_monitor_info(const char* monitorName, std::string* friendlyMonitorName, int* uniqueIndex)
 {
   int index = 0;
   DISPLAY_DEVICE device;

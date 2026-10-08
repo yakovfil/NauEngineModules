@@ -22,6 +22,11 @@ inline wchar_t *lazyToWchar(const char8_t *str, wchar_t *buf, size_t max_len)
   return buf;
 }
 
+inline wchar_t* lazyToWchar(const char* str, wchar_t* buf, size_t max_len)
+{
+    return lazyToWchar(reinterpret_cast<const char8_t*>(str), buf, max_len);
+}
+
 // NOTE: This is intended for debug only, this is possibly slow, so use with care!
 template <size_t N>
 inline char *get_resource_name(ID3D12Resource *res, char (&cbuf)[N])

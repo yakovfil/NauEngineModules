@@ -6,15 +6,18 @@
 #if _TARGET_PC_WIN
 
     #include <optional>
+    #include <string>
+    #include <string_view>
     #include <utility>
 
-    #include "nau/string/string.h"
+    #include "nau/string/format.h"
+    #include "nau/string/string_conv.h"
     #include "nau/supp/dag_comPtr.h"
 
 struct IDXGIAdapter;
 struct IDXGIOutput;
 
-nau::string get_monitor_name_from_output(IDXGIOutput *pOutput);
+std::string get_monitor_name_from_output(IDXGIOutput* pOutput);
 
 /* Returns with the monitor's ptr if it exists with the given name,
  otherwise returns with nullptr.

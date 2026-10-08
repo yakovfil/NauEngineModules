@@ -99,32 +99,32 @@ bool TextureMetaData::isDefault() const
   return memcmp(&def, this, sizeof(def)) == 0; // -V1014
 }
 
-const char *TextureMetaData::encode(const char *fpath, nau::string *storage) const
+const char* TextureMetaData::encode(const char* fpath, std::string* storage) const
 {
-  static nau::string buf0;
-  nau::string &buf = storage ? *storage : buf0;
+    static std::string buf0;
+    std::string& buf = storage ? *storage : buf0;
 
-  if (isDefault())
-    return fpath;
+    if (isDefault())
+        return fpath;
 
-  if (!isValid())
-    return NULL;
+    if (!isValid())
+        return NULL;
 
-  buf = nau::string::format(0, "%s?", fpath);
-  if (texFilterMode != FILT_DEF)
-  {
-    buf.append("F");
-    buf.append(filtSymbol + texFilterMode); //, 1);
-  }
+    buf = nau::utils::format("%s?", fpath);
+    if (texFilterMode != FILT_DEF)
+    {
+        buf.append("F");
+        buf.append(filtSymbol + texFilterMode);  //, 1);
+    }
   if (mipFilterMode != FILT_DEF)
   {
     buf.append("M");
     buf.append(filtSymbol + mipFilterMode); //, 1);
   }
   if ((addrU == ADDR_BORDER || addrV == ADDR_BORDER || addrW == ADDR_BORDER) && borderCol)
-    buf.append(nau::string::format("B%08x", borderCol));
+      buf.append(nau::utils::format("B%08x", borderCol));
   if (lodBias)
-    buf.append(nau::string::format("L%d", lodBias));
+      buf.append(nau::utils::format("L%d", lodBias));
 
   if (addrU != ADDR_WRAP || addrV != ADDR_WRAP || addrW != ADDR_WRAP)
   {
@@ -140,19 +140,19 @@ const char *TextureMetaData::encode(const char *fpath, nau::string *storage) con
 
   if (hqMip != 0 || mqMip != 1 || lqMip != 2)
   {
-    buf.append(nau::string::format("Q%d", hqMip));
-    if (mqMip != 1 || lqMip != 2)
-    {
-      buf.append(nau::string::format("-%d", mqMip));
-      if (lqMip != 2)
-        buf.append(nau::string::format("-%d", lqMip));
-    }
+      buf.append(nau::utils::format("Q%d", hqMip));
+      if (mqMip != 1 || lqMip != 2)
+      {
+          buf.append(nau::utils::format("-%d", mqMip));
+          if (lqMip != 2)
+              buf.append(nau::utils::format("-%d", lqMip));
+      }
   }
 
   if (anisoFunc != AFUNC_MUL || anisoFactor != 1)
-    buf.append(nau::string::format("N%c%d", aniSymbol[anisoFunc], anisoFactor));
+      buf.append(nau::utils::format("N%c%d", aniSymbol[anisoFunc], anisoFactor));
   if (stubTexIdx > 0)
-    buf.append(nau::string::format("U%02d", stubTexIdx));
+      buf.append(nau::utils::format("U%02d", stubTexIdx));
 
   if (!(flags & FLG_OPTIMIZE))
     buf.append("T0");
@@ -167,29 +167,29 @@ const char *TextureMetaData::encode(const char *fpath, nau::string *storage) con
   if (flags & FLG_IES_ROT)
     buf.append("R");
   if (iesScalingFactor != 0)
-    buf.append(nau::string::format("V%04x", static_cast<uint16_t>(iesScalingFactor)));
+      buf.append(nau::utils::format("V%04x", static_cast<uint16_t>(iesScalingFactor)));
 
   if (!baseTexName.empty())
-    buf.append(nau::string::format("S%s", baseTexName.c_str()));
+      buf.append(nau::utils::format("S%s", baseTexName.c_str()));
   return (const char*)buf.c_str();
 }
 
-const char *TextureMetaData::decode(const char *fstring, nau::string *storage)
+const char* TextureMetaData::decode(const char* fstring, std::string* storage)
 {
-  static nau::string buf0;
-  const char *p = strrchr(fstring, '?');
+    static std::string buf0;
+    const char* p = strrchr(fstring, '?');
 
-  if (!p)
-  {
-    defaults();
-    return fstring;
-  }
+    if (!p)
+    {
+        defaults();
+        return fstring;
+    }
 
   if (decodeData(p, true))
   {
-    nau::string &buf = storage ? *storage : buf0;
-    buf = nau::string::format("%.*s", (int)(p - fstring), fstring);
-    return (const char*)buf.c_str();
+      std::string& buf = storage ? *storage : buf0;
+      buf = nau::utils::format("%.*s", (int)(p - fstring), fstring);
+      return (const char*)buf.c_str();
   }
   return NULL;
 }
@@ -689,17 +689,17 @@ int TextureMetaData::d3dMipFilter() const
   return d3d_filt[mipFilterMode];
 }
 
-const char *TextureMetaData::decodeFileName(const char *fstring, nau::string *storage)
+const char* TextureMetaData::decodeFileName(const char* fstring, std::string* storage)
 {
-  static nau::string buf0;
-  nau::string &buf = storage ? *storage : buf0;
-  const char *p = strrchr(fstring, '?');
+    static std::string buf0;
+    std::string& buf = storage ? *storage : buf0;
+    const char* p = strrchr(fstring, '?');
 
-  if (!p)
-    return fstring;
+    if (!p)
+        return fstring;
 
-  buf = nau::string::format(0, "%.*s", (int)(p - fstring), fstring);
-  return (const char *)buf.c_str();
+    buf = nau::utils::format("%.*s", (int)(p - fstring), fstring);
+    return (const char*)buf.c_str();
 }
 
 

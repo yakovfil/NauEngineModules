@@ -12,7 +12,7 @@ namespace nau
      */
     class PhysicsModule : public DefaultModuleImpl
     {
-        string getModuleName() override
+        std::string getModuleName() override
         {
             return "nau.physics";
         }

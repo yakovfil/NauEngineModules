@@ -199,8 +199,8 @@ int texmgr_internal::find_texture_rec(const char *name, bool auto_add, TextureFa
     return -1;
 
   TextureMetaData tmd;
-  nau::string stor;
-  nau::string nm(tmd.decode(name, &stor));
+  std::string stor;
+  std::string nm(tmd.decode(name, &stor));
   //dd_simplify_fname_c(nm); // TODO: fix it
   nau::hal::dd_strlwr((char*)nm.c_str());
 
@@ -325,24 +325,24 @@ void add_anisotropy_exception(TEXTUREID id)
 
 void reset_anisotropy(const char *tex_name_filter)
 {
-  nau::string stor;
-  bool isFilterValid = tex_name_filter != nullptr && strlen(tex_name_filter) > 0;
-  TEX_REC_AUTO_LOCK();
-  for (unsigned i = 0, ie = RMGR.getAccurateIndexCount(); i < ie; i++)
-    if (RMGR.getRefCount(i) >= 0) // It is not a free id.
-    {
-      const char *name = RMGR.getName(i);
-      BaseTexture *bt = RMGR.baseTexture(i);
-      if (!bt)
-        continue;
-      if (isFilterValid && strstr(name, tex_name_filter) == nullptr)
-        continue;
-      if (anisotropy_exceptions.has((TEXTUREID)i))
-        continue;
-      TextureMetaData tmd;
-      tmd.decode(name, &stor);
-      //bt->setAnisotropy(tmd.calcAnisotropy(::dgs_tex_anisotropy)); // TODO: fix it
-    }
+    std::string stor;
+    bool isFilterValid = tex_name_filter != nullptr && strlen(tex_name_filter) > 0;
+    TEX_REC_AUTO_LOCK();
+    for (unsigned i = 0, ie = RMGR.getAccurateIndexCount(); i < ie; i++)
+        if (RMGR.getRefCount(i) >= 0)  // It is not a free id.
+        {
+            const char* name = RMGR.getName(i);
+            BaseTexture* bt = RMGR.baseTexture(i);
+            if (!bt)
+                continue;
+            if (isFilterValid && strstr(name, tex_name_filter) == nullptr)
+                continue;
+            if (anisotropy_exceptions.has((TEXTUREID)i))
+                continue;
+            TextureMetaData tmd;
+            tmd.decode(name, &stor);
+            // bt->setAnisotropy(tmd.calcAnisotropy(::dgs_tex_anisotropy)); // TODO: fix it
+        }
 }
 
 static void (*lod_bias_change_cb)() = nullptr;

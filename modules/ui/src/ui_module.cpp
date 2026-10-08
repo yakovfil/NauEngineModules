@@ -7,7 +7,7 @@ namespace nau::ui
 {
     class UiModule final : public DefaultModuleImpl
     {
-        string getModuleName() override
+        std::string getModuleName() override
         {
             return "nau.ui";
         }

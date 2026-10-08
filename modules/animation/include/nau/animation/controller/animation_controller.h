@@ -38,7 +38,7 @@ namespace nau::animation
         {
             AnimInstanceDescriptor() = default;
             AnimInstanceDescriptor(const AnimationInstance& animInstance);
-            AnimInstanceDescriptor(nau::string animName);
+            AnimInstanceDescriptor(std::string animName);
             AnimInstanceDescriptor(const std::string& animName);
 
             friend bool operator==(const AnimInstanceDescriptor&, const AnimInstanceDescriptor&) = default;

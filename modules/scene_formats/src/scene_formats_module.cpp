@@ -9,7 +9,7 @@ namespace nau
 {
     class SceneFormatsModule final : public DefaultModuleImpl
     {
-        string getModuleName() override
+        std::string getModuleName() override
         {
             return "CoreSceneFormats";
         }

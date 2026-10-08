@@ -36,7 +36,7 @@ namespace nau
      */
     class NetModule : public DefaultModuleImpl
     {
-        string getModuleName() override
+        std::string getModuleName() override
         {
             return "nau.net";
         }

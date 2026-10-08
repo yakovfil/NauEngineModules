@@ -18,8 +18,11 @@
 
 #endif
 
-#include "nau/string/string.h"
+#include <string>
+#include <string_view>
 
+#include "nau/string/format.h"
+#include "nau/string/string_conv.h"
 
 namespace gpu
 {
@@ -38,7 +41,10 @@ uint32_t get_video_nvidia_version();
 #else
 typedef void *NvPhysicalGpuHandle;
 inline void get_nv_gpu_memory(uint32_t &out_m1, uint32_t &out_m2, uint32_t &out_m3) { out_m1 = out_m2 = out_m3 = 0; }
-inline void get_video_nvidia_str(nau::string &out_str) { out_str = ""; }
+inline void get_video_nvidia_str(std::string& out_str)
+{
+    out_str = "";
+}
 #endif
 
 //------------------------
@@ -84,7 +90,7 @@ void *__stdcall ADL_Main_Memory_Alloc(int iSize);
 
 bool init_ati();
 void close_ati();
-void get_video_ati_str(nau::string &out_str);
+void get_video_ati_str(std::string& out_str);
 
 #endif
 } // namespace gpu

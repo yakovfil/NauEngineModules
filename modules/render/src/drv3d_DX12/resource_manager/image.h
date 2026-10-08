@@ -55,7 +55,7 @@ private:
 #if DX12_USE_ESRAM
   EsramResource esramResource{};
 #endif
-  ContainerMutexWrapper<nau::string, nau::threading::SpinLock> debugName;
+  ContainerMutexWrapper<std::string, nau::threading::SpinLock> debugName;
   uint8_t msaaLevel = 0;
 
   D3D12_RESOURCE_DIMENSION imageType = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
@@ -140,7 +140,10 @@ public:
     recentView = view;
   }
   D3D12_RESOURCE_DIMENSION getType() const { return imageType; }
-  void setDebugName(const char8_t *name) { *debugName.access() = name; }
+  void setDebugName(const char8_t* name)
+  {
+      *debugName.access() = nau::strings::toUtf8(name);
+  }
   ArrayLayerCount getArrayLayers() const { return layerCount; }
   ArrayLayerCount getArrayLayerRange() const { return getArrayLayers(); }
   MipMapCount getMipLevelRange() const { return mipLevels; }

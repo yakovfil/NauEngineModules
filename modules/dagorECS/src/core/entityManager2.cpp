@@ -895,7 +895,7 @@ EntityId EntityManager::createEntitySync(const char *templ_name, ComponentsIniti
   if (bool(lock))
   {
 #if NAU_DEBUG
-      NAU_ENSURE_LOG(nau::diag::LogLevel::Error, u8"sync (re)creation is not valid in constrainedMt mode. Create <{}>", nau::string(templ_name));
+      NAU_ENSURE_LOG(nau::diag::LogLevel::Error, u8"sync (re)creation is not valid in constrainedMt mode. Create <{}>", std::string(templ_name));
 #endif
       if(updateAllQueriesAnyMT())
       {

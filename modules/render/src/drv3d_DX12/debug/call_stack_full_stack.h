@@ -83,8 +83,8 @@ public:
 
 class Reporter
 {
-    std::unordered_map<const CallStack*, nau::string> callStackCache;
-    const nau::string& doResolve(const CommandData& data)
+    std::unordered_map<const CallStack*, std::string> callStackCache;
+    const std::string& doResolve(const CommandData& data)
     {
         auto ref = callStackCache.find(data.callStack);
         if (end(callStackCache) == ref)
@@ -107,7 +107,7 @@ public:
     NAU_LOG_DEBUG(doResolve(data).c_str());
   }
 
-  void append(nau::string &buffer, const char *prefix, const CommandData &data)
+  void append(std::string& buffer, const char* prefix, const CommandData& data)
   {
     if (!data.callStack)
     {
@@ -118,7 +118,10 @@ public:
     buffer.append(str);
   }
 
-  nau::string_view resolve(const CommandData &data) { return doResolve(data); }
+  std::string_view resolve(const CommandData& data)
+  {
+      return doResolve(data);
+  }
 };
 } // namespace full_stack
 } // namespace call_stack

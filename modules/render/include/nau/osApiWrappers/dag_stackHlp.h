@@ -5,8 +5,11 @@
 
 #include <stdint.h>
 
-#include "nau/string/string.h"
+#include <string>
+#include <string_view>
 
+#include "nau/string/format.h"
+#include "nau/string/string_conv.h"
 
 //! fills stack with current call stack addresses and returns number of stack frames;
 //! no more than max_size addresses stored, the tail entry (if any space left) filled with 0xFFFFFFFF
@@ -21,7 +24,7 @@ NAU_RENDER_EXPORT unsigned stackhlp_fill_stack_exact(void **stack, unsigned max_
 NAU_RENDER_EXPORT const char *stackhlp_get_call_stack(char *out_buf, int out_buf_sz, const void *const *stack, unsigned max_size);
 
 //! returns string filled with decoded call stack
-NAU_RENDER_EXPORT nau::string stackhlp_get_call_stack_str(const void *const *stack, unsigned max_size);
+NAU_RENDER_EXPORT std::string stackhlp_get_call_stack_str(const void* const* stack, unsigned max_size);
 
 NAU_RENDER_EXPORT void *stackhlp_get_bp();
 
@@ -201,7 +204,7 @@ NAU_RENDER_EXPORT const char *get_call_stack(char *buf, unsigned max_buf, stackh
 // Similar to 'get_call_stack' this function generates a text representation of both the call stack state 'stack' and the extended call
 // stack state 'ext_stack'.
 // The generated text is returned as a 'String' value.
-NAU_RENDER_EXPORT nau::string get_call_stack_str(stackhelp::CallStackInfo stack, stackhelp::ext::CallStackInfo ext_stack);
+NAU_RENDER_EXPORT std::string get_call_stack_str(stackhelp::CallStackInfo stack, stackhelp::ext::CallStackInfo ext_stack);
 } // namespace ext
 } // namespace stackhelp
 

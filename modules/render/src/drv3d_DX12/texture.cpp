@@ -927,9 +927,9 @@ BaseTexture *BaseTex::makeTmpTexResCopy(int w, int h, int d, int l, bool staging
   if (!staging_tex)
     clonedTex->tidXored = tidXored, clonedTex->stubTexIdx = stubTexIdx;
 
-  nau::string tempStr = std::string(staging_tex ? "stg:" : "tmp:");
-  tempStr.append(getTexName());
-  clonedTex->setParams(w, h, d, l, tempStr.c_str());//String::mk_str_cat(staging_tex ? "stg:" : "tmp:", getTexName()));
+  std::string tempStr = std::string(staging_tex ? "stg:" : "tmp:");
+  tempStr.append(nau::strings::toUtf8(getTexName()));
+  clonedTex->setParams(w, h, d, l, reinterpret_cast<const char8_t*>(tempStr.c_str()));  // String::mk_str_cat(staging_tex ? "stg:" : "tmp:", getTexName()));
   clonedTex->setIsPreallocBeforeLoad(true);
   if (!clonedTex->allocateTex())
     del_d3dres(clonedTex);

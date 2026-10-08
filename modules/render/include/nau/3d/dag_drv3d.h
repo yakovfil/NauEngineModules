@@ -865,8 +865,7 @@ NAU_RENDER_EXPORT void update_window_mode();
 
 /// guesses and returns GPU vendor ID;
 /// may be called before d3d::init_driver()
-NAU_RENDER_EXPORT int guess_gpu_vendor(nau::string *out_gpu_desc = NULL, uint32_t *out_drv_ver = NULL, nau::hal::DagorDateTime *out_drv_date = NULL,
-  uint32_t *device_id = nullptr);
+NAU_RENDER_EXPORT int guess_gpu_vendor(std::string* out_gpu_desc = NULL, uint32_t* out_drv_ver = NULL, nau::hal::DagorDateTime* out_drv_date = NULL, uint32_t* device_id = nullptr);
 
 nau::hal::DagorDateTime get_gpu_driver_date(int vendor);
 
@@ -878,9 +877,9 @@ unsigned get_free_dedicated_gpu_memory_size_kb();
 /// fast implementation to get the memory during the game, supports only Nvidia GPUs.
 void get_current_gpu_memory_kb(uint32_t *dedicated_total, uint32_t *dedicated_free);
 
-bool get_gpu_freq(nau::string &out_freq);
+bool get_gpu_freq(std::string& out_freq);
 int get_gpu_temperature();
-void get_video_vendor_str(nau::string &out_str);
+void get_video_vendor_str(std::string& out_str);
 
 /// DPI of the primary display divided by 96 (96 dpi is for 100% scale in Windows)
 float get_display_scale();
@@ -1065,7 +1064,7 @@ NAU_RENDER_EXPORT bool stretch_rect(BaseTexture *src, BaseTexture *dst, nau::mat
 
 bool copy_from_current_render_target(BaseTexture *to_tex);
 
-void get_texture_statistics(uint32_t *num_textures, uint64_t *total_mem, nau::string *out_dump);
+void get_texture_statistics(uint32_t* num_textures, uint64_t* total_mem, std::string* out_dump);
 
 // Texture states setup
 

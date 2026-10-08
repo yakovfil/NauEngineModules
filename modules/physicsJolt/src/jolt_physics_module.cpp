@@ -14,7 +14,7 @@ namespace nau
      */
     class PhysicsJoltModule : public DefaultModuleImpl
     {
-        string getModuleName() override
+        std::string getModuleName() override
         {
             return "nau.physics.jolt";
         }

@@ -2,6 +2,7 @@
 
 // Copyright (C) 2024  Gaijin Games KFT.  All rights reserved
 
+#include "nau/utils/span.h"
 #include <iterator>
 #include <memory>
 #include <span>
@@ -575,7 +576,7 @@ LRESULT CALLBACK drv3d_dx12::WindowState::windowProcProxy(HWND hWnd, UINT messag
 
 #endif
 
-void d3d::get_texture_statistics(uint32_t *num_textures, uint64_t *total_mem, nau::string *out_text)
+void d3d::get_texture_statistics(uint32_t* num_textures, uint64_t* total_mem, std::string* out_text)
 {
   drv3d_dx12::api_state.device.generateResourceAndMemoryReport(num_textures, total_mem, out_text);
 }
@@ -1687,22 +1688,22 @@ int d3d::driver_command(int command, void *par1, void *par2, void *par3)
 #if _TARGET_PC_WIN
     case DRV3D_COMMAND_GET_MONITORS:
     {
-        std::vector<nau::string>& monitorList = *reinterpret_cast<std::vector<nau::string>*>(par1);
+        std::vector<std::string>& monitorList = *reinterpret_cast<std::vector<std::string>*>(par1);
         drv3d_dx12::api_state.device.enumerateActiveMonitors(monitorList);
         return 1;
     }
     case DRV3D_COMMAND_GET_MONITOR_INFO:
     {
       const char *displayName = *reinterpret_cast<const char **>(par1);
-      nau::string *friendlyName = reinterpret_cast<nau::string *>(par2);
+      std::string* friendlyName = reinterpret_cast<std::string*>(par2);
       int *monitorIndex = reinterpret_cast<int *>(par3);
       return get_monitor_info(displayName, friendlyName, monitorIndex) ? 1 : 0;
     }
     case DRV3D_COMMAND_GET_RESOLUTIONS_FROM_MONITOR:
     {
       const char *displayName = resolve_monitor_name(*reinterpret_cast<const char **>(par1));
-      std::vector<nau::string>& resolutions = *reinterpret_cast<std::vector<nau::string>*>(par2);
-      clear_and_shrink(resolutions);
+      std::vector<std::string>& resolutions = *reinterpret_cast<std::vector<std::string>*>(par2);
+      nau::clear_and_shrink(resolutions);
 
       ComPtr<IDXGIOutput> output = drv3d_dx12::api_state.device.getOutputMonitorByNameOrDefault(displayName);
       if (output)
@@ -2467,7 +2468,7 @@ VPROG d3d::create_vertex_shader_asm(const char * /*asm_text*/)
 }
 
 #if _TARGET_PC_WIN
-VPROG d3d::create_vertex_shader_hlsl(const char *, unsigned, const char *, const char *, nau::string *)
+VPROG d3d::create_vertex_shader_hlsl(const char*, unsigned, const char*, const char*, std::string*)
 {
   NAU_ASSERT(false);
   return BAD_PROGRAM;
@@ -2507,7 +2508,7 @@ VDECL d3d::get_program_vdecl(PROGRAM prog)
 #endif
 
 #if _TARGET_PC_WIN
-FSHADER d3d::create_pixel_shader_hlsl(const char *, unsigned, const char *, const char *, nau::string *)
+FSHADER d3d::create_pixel_shader_hlsl(const char*, unsigned, const char*, const char*, std::string*)
 {
   NAU_ASSERT(false);
   return BAD_PROGRAM;
@@ -3500,7 +3501,7 @@ bool d3d::get_event_query_status(d3d::EventQuery *fence, bool flush)
 }
 
 #if _TARGET_PC
-void d3d::get_video_modes_list(std::vector<nau::string>& list)
+void d3d::get_video_modes_list(std::vector<std::string>& list)
 {
     drv3d_dx12::api_state.device.enumerateDisplayModes(list);
 }

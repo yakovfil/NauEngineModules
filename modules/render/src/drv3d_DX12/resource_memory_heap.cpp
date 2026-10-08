@@ -5276,25 +5276,25 @@ const char *filter_type_to_string(D3D12_FILTER_TYPE type)
 
 struct ResourceHeapVisitor
 {
-  nau::string &str;
-  ByteUnits &totalSize;
-  ByteUnits &freeSize;
-  size_t &totalHeapCount;
+    std::string& str;
+    ByteUnits& totalSize;
+    ByteUnits& freeSize;
+    size_t& totalHeapCount;
 
-  void visitHeapGroup(uint32_t ident, size_t count, bool is_cpu_visible, bool is_cpu_cached, bool is_gpu_executable)
-  {
-    str = nau::string::format(128, "Heap Group %08X (%s, %s%s) with %d heaps\n", ident, is_cpu_visible ? "CPU visible" : "dedicated GPU",
-      is_cpu_visible ? is_cpu_cached ? "CPU cached, " : "CPU write combine, " : "",
-      is_gpu_executable ? "GPU executable" : "Not GPU executable", count);
-    totalHeapCount += count;
-  }
+    void visitHeapGroup(uint32_t ident, size_t count, bool is_cpu_visible, bool is_cpu_cached, bool is_gpu_executable)
+    {
+        str = nau::utils::format("Heap Group %08X (%s, %s%s) with %d heaps\n", ident, is_cpu_visible ? "CPU visible" : "dedicated GPU",
+                                 is_cpu_visible ? is_cpu_cached ? "CPU cached, " : "CPU write combine, " : "",
+                                 is_gpu_executable ? "GPU executable" : "Not GPU executable", count);
+        totalHeapCount += count;
+    }
 
   void visitHeap(ByteUnits total_size, ByteUnits free_size, uint32_t fragmentation_percent)
   {
     totalSize += total_size;
     freeSize += free_size;
-    str = nau::string::format(128, "Size %6.2f %7s Free %6.2f %7s, %3u%% fragmentation\n", total_size.units(), total_size.name(), free_size.units(),
-      free_size.name(), fragmentation_percent);
+    str = nau::utils::format("Size %6.2f %7s Free %6.2f %7s, %3u%% fragmentation\n", total_size.units(), total_size.name(), free_size.units(),
+                             free_size.name(), fragmentation_percent);
   }
 
   void visitHeapUsedRange(ValueRange<uint64_t>) {}
@@ -5302,12 +5302,12 @@ struct ResourceHeapVisitor
   void visitHeapFreeRange(ValueRange<uint64_t> range)
   {
     ByteUnits sizeBytes{range.size()};
-    str = nau::string::format(128, "DX12: Free segment at %016llX with %6.2f %7s\n", range.front(), sizeBytes.units(), sizeBytes.name());
+    str = nau::utils::format("DX12: Free segment at %016llX with %6.2f %7s\n", range.front(), sizeBytes.units(), sizeBytes.name());
   }
 };
 } // namespace
 
-void ResourceMemoryHeap::generateResourceAndMemoryReport(uint32_t *num_textures, uint64_t *total_mem, nau::string *out_text)
+void ResourceMemoryHeap::generateResourceAndMemoryReport(uint32_t* num_textures, uint64_t* total_mem, std::string* out_text)
 {
   if (num_textures)
     *num_textures = 0;
@@ -5322,8 +5322,8 @@ void ResourceMemoryHeap::generateResourceAndMemoryReport(uint32_t *num_textures,
     ByteUnits freeResourceMemorySize;
     size_t totalHeapCount = 0;
     visitHeaps(ResourceHeapVisitor{*out_text, totalResourceMemorySize, freeResourceMemorySize, totalHeapCount});
-    *out_text = nau::string::format(128, "%u resource heaps, with %6.2f %7s in total and %6.2f %7s free\n", totalHeapCount,
-      totalResourceMemorySize.units(), totalResourceMemorySize.name(), freeResourceMemorySize.units(), freeResourceMemorySize.name());
+    *out_text = nau::utils::format("%u resource heaps, with %6.2f %7s in total and %6.2f %7s free\n", totalHeapCount,
+                                   totalResourceMemorySize.units(), totalResourceMemorySize.name(), freeResourceMemorySize.units(), freeResourceMemorySize.name());
 
     ByteUnits pushRingSize = getFramePushRingMemorySize();
     ByteUnits uploadRingSize = getUploadRingMemorySize();
@@ -5333,12 +5333,12 @@ void ResourceMemoryHeap::generateResourceAndMemoryReport(uint32_t *num_textures,
     ByteUnits persistBidirSize = getPersistentBidirectionalMemorySize();
 
     out_text->append("~ Driver internal buffers ~~~~~~~~~~~\n");
-    out_text->append(nau::string::format(128, "%6.2f %7s push ring buffers\n", pushRingSize.units(), pushRingSize.name()));
-    out_text->append(nau::string::format(128, "%6.2f %7s upload ring buffers\n", uploadRingSize.units(), uploadRingSize.name()));
-    out_text->append(nau::string::format(128, "%6.2f %7s temporary upload buffers\n", tempUploadSize.units(), tempUploadSize.name()));
-    out_text->append(nau::string::format(128, "%6.2f %7s persistent upload buffers\n", persistUploadSize.units(), persistUploadSize.name()));
-    out_text->append(nau::string::format(128, "%6.2f %7s persistent read back buffers\n", persistReadBackSize.units(), persistReadBackSize.name()));
-    out_text->append(nau::string::format(128, "%6.2f %7s persistent bidirectional buffers\n", persistBidirSize.units(), persistBidirSize.name()));
+    out_text->append(nau::utils::format("%6.2f %7s push ring buffers\n", pushRingSize.units(), pushRingSize.name()));
+    out_text->append(nau::utils::format("%6.2f %7s upload ring buffers\n", uploadRingSize.units(), uploadRingSize.name()));
+    out_text->append(nau::utils::format("%6.2f %7s temporary upload buffers\n", tempUploadSize.units(), tempUploadSize.name()));
+    out_text->append(nau::utils::format("%6.2f %7s persistent upload buffers\n", persistUploadSize.units(), persistUploadSize.name()));
+    out_text->append(nau::utils::format("%6.2f %7s persistent read back buffers\n", persistReadBackSize.units(), persistReadBackSize.name()));
+    out_text->append(nau::utils::format("%6.2f %7s persistent bidirectional buffers\n", persistBidirSize.units(), persistBidirSize.name()));
     out_text->append("~ All driver level buffers ~~~~~~~~~~\n");
     ByteUnits butterTotalExternalSize;
     ByteUnits bufferTotalInternalSize;
@@ -5355,14 +5355,14 @@ void ResourceMemoryHeap::generateResourceAndMemoryReport(uint32_t *num_textures,
         }
         butterTotalExternalSize += external_size;
         bufferTotalInternalSize += internal_size;
-        out_text->append(nau::string::format(128, "%6.2f %7s - %6.2f %7s %s%s\n", internal_size.units(), internal_size.name(), external_size.units(),
-          external_size.name(), name, is_discard_ready ? " discard ready" : ""));
+        out_text->append(nau::utils::format("%6.2f %7s - %6.2f %7s %s%s\n", internal_size.units(), internal_size.name(), external_size.units(),
+                                            external_size.name(), name, is_discard_ready ? " discard ready" : ""));
       });
-    out_text->append(nau::string::format(128,
-      "%u buffers of which %u are discard ready list, with %6.2f %7s external size "
-      "and %6.2f %7s internal size\n",
-      bufferCount, discardReadyCount, butterTotalExternalSize.units(), butterTotalExternalSize.name(), bufferTotalInternalSize.units(),
-      bufferTotalInternalSize.name()));
+    out_text->append(nau::utils::format(
+        "%u buffers of which %u are discard ready list, with %6.2f %7s external size "
+        "and %6.2f %7s internal size\n",
+        bufferCount, discardReadyCount, butterTotalExternalSize.units(), butterTotalExternalSize.name(), bufferTotalInternalSize.units(),
+        bufferTotalInternalSize.name()));
     out_text->append("~ Sbuffer resources ~~~~~~~~~~~~~~~~~\n");
 
     {
@@ -5378,12 +5378,12 @@ void ResourceMemoryHeap::generateResourceAndMemoryReport(uint32_t *num_textures,
           {
             bufferSysCopySize += size;
           }
-          out_text->append(nau::string::format(128, "%6.2f %7s %s '%s' buffer%s\n", size.units(), size.name(),
-            buffer->getFlags() & SBCF_DYNAMIC ? "dynamic" : "static", buffer->getBufName(),
-            buffer->hasSystemCopy() ? "(has copy)" : ""));
+          out_text->append(nau::utils::format("%6.2f %7s %s '%s' buffer%s\n", size.units(), size.name(),
+                                              buffer->getFlags() & SBCF_DYNAMIC ? "dynamic" : "static", buffer->getBufName(),
+                                              buffer->hasSystemCopy() ? "(has copy)" : ""));
         });
-      out_text->append(nau::string::format(256, "%u buffers, with %6.2f %7s buffer memory and %6.2f %7s system memory\n", sbufferCount,
-        bufferTotalSize.units(), bufferTotalSize.name(), bufferSysCopySize.units(), bufferSysCopySize.name()));
+      out_text->append(nau::utils::format("%u buffers, with %6.2f %7s buffer memory and %6.2f %7s system memory\n", sbufferCount,
+                                          bufferTotalSize.units(), bufferTotalSize.name(), bufferSysCopySize.units(), bufferSysCopySize.name()));
     }
 
     out_text->append("~ All driver level textures ~~~~~~~~~\n");
@@ -5395,19 +5395,25 @@ void ResourceMemoryHeap::generateResourceAndMemoryReport(uint32_t *num_textures,
         if (image->isAliased())
         {
           ++imageAliases;
-          image->getDebugName([&out_text](auto &name) { out_text->append(nau::string::format(128, "%14s '%s'\n", "aliased", name)); });
+          image->getDebugName([&out_text](auto& name)
+          {
+              out_text->append(nau::utils::format("%14s '%s'\n", "aliased", name));
+          });
         }
         else
         {
           ByteUnits size = image->getMemory().size();
           totalImageResourcesSize += size;
           image->getDebugName(
-            [&out_text, size](auto &name) { out_text->append(nau::string::format(128, "%6.2f %7s '%s'\n", size.units(), size.name(), name)); });
+              [&out_text, size](auto& name)
+          {
+              out_text->append(nau::utils::format("%6.2f %7s '%s'\n", size.units(), size.name(), name));
+          });
         }
         ++imageCount;
       });
-    out_text->append(nau::string::format(128, "%u textures, with %6.2f %7s plus %u aliased textures\n", imageCount, totalImageResourcesSize.units(),
-      totalImageResourcesSize.name(), imageAliases));
+    out_text->append(nau::utils::format("%u textures, with %6.2f %7s plus %u aliased textures\n", imageCount, totalImageResourcesSize.units(),
+                                        totalImageResourcesSize.name(), imageAliases));
   }
 
   uint32_t tex2DCount = 0;
@@ -5425,84 +5431,84 @@ void ResourceMemoryHeap::generateResourceAndMemoryReport(uint32_t *num_textures,
     out_text->append("~ Texture resources ~~~~~~~~~~~~~~~~~\n");
   }
   {
-    nau::string tmpStor;
-    visitTextureObjects([&](auto tex) //
+      std::string tmpStor;
+      visitTextureObjects([&](auto tex)  //
       {
-        if (auto img = tex->getDeviceImage())
-        {
-          ByteUnits imageBytes = img->getMemory().size();
-          if (img->isAliased())
+          if (auto img = tex->getDeviceImage())
           {
-            imageBytes = 0;
+              ByteUnits imageBytes = img->getMemory().size();
+              if (img->isAliased())
+              {
+                  imageBytes = 0;
+              }
+              auto ql = tql::get_tex_cur_ql(tex->getTID());
+              switch (tex->resType)
+              {
+                  case RES3D_TEX:
+                      ++tex2DCount;
+                      tex2DSize += imageBytes.value();
+                      if (out_text)
+                      {
+                          out_text->append(nau::utils::format(
+                              "%6.2f %7s q%d  2d  %4dx%-4d, m%2d, aniso=%-2d filter=%7s mip=%s, %s "
+                              "- '%s'",
+                              imageBytes.units(), imageBytes.name(), (int)ql, tex->width, tex->height, tex->level_count(), tex->samplerState.getAniso(),
+                              filter_type_to_string(tex->samplerState.getMinFilter()), filter_type_to_string(tex->samplerState.getMip()),
+                              img->getFormat().getNameString(), tex->getResName()));
+                      }
+                      break;
+                  case RES3D_CUBETEX:
+                      ++texCubeCount;
+                      texCubeSize += imageBytes.value();
+                      if (out_text)
+                      {
+                          out_text->append(nau::utils::format("%6.2f %7s q%d cube %4d, m%2d, %s - '%s'", imageBytes.units(), imageBytes.name(), (int)ql, tex->width,
+                                                              tex->level_count(), img->getFormat().getNameString(), tex->getResName()));
+                      }
+                      break;
+                  case RES3D_VOLTEX:
+                      ++texVolCount;
+                      texVolSize += imageBytes.value();
+                      if (out_text)
+                      {
+                          out_text->append(nau::utils::format(
+                              "%6.2f %7s q%d  vol %4dx%-4dx%3d, m%2d, aniso=%-2d filter=%7s mip=%s, "
+                              "%s - '%s'",
+                              imageBytes.units(), imageBytes.name(), (int)ql, tex->width, tex->height, tex->depth, tex->level_count(),
+                              tex->samplerState.getAniso(), filter_type_to_string(tex->samplerState.getMinFilter()),
+                              filter_type_to_string(tex->samplerState.getMip()), img->getFormat().getNameString(), tex->getResName()));
+                      }
+                      break;
+                  case RES3D_ARRTEX:
+                      ++texArrayCount;
+                      texArraySize += imageBytes.value();
+                      if (out_text)
+                      {
+                          out_text->append(nau::utils::format(
+                              "%6.2f %7s q%d  arr %4dx%-4dx%3d, m%2d, aniso=%-2d filter=%7s mip=%s, "
+                              "%s - '%s'",
+                              imageBytes.units(), imageBytes.name(), (int)ql, tex->width, tex->height, tex->depth, tex->level_count(),
+                              tex->samplerState.getAniso(), filter_type_to_string(tex->samplerState.getMinFilter()),
+                              filter_type_to_string(tex->samplerState.getMip()), img->getFormat().getNameString(), tex->getResName()));
+                      }
+                      break;
+              }
+              if (out_text)
+              {
+                  if (img->isAliased())
+                  {
+                      out_text->append(" is alias");
+                  }
+                  if (num_textures)
+                  {
+                      out_text->append("\n");
+                  }
+                  else
+                  {
+                      out_text->append(nau::utils::format(" cache=%d%s\n", img->getViewCount(), tql::get_tex_info(tex->getTID(), false, tmpStor)));
+                  }
+              }
           }
-          auto ql = tql::get_tex_cur_ql(tex->getTID());
-          switch (tex->resType)
-          {
-            case RES3D_TEX:
-              ++tex2DCount;
-              tex2DSize += imageBytes.value();
-              if (out_text)
-              {
-                out_text->append(nau::string::format(0,
-                  "%6.2f %7s q%d  2d  %4dx%-4d, m%2d, aniso=%-2d filter=%7s mip=%s, %s "
-                  "- '%s'",
-                  imageBytes.units(), imageBytes.name(), (int)ql, tex->width, tex->height, tex->level_count(), tex->samplerState.getAniso(),
-                  filter_type_to_string(tex->samplerState.getMinFilter()), filter_type_to_string(tex->samplerState.getMip()),
-                  img->getFormat().getNameString(), tex->getResName()));
-              }
-              break;
-            case RES3D_CUBETEX:
-              ++texCubeCount;
-              texCubeSize += imageBytes.value();
-              if (out_text)
-              {
-                out_text->append(nau::string::format(0, "%6.2f %7s q%d cube %4d, m%2d, %s - '%s'", imageBytes.units(), imageBytes.name(), (int)ql, tex->width,
-                  tex->level_count(), img->getFormat().getNameString(), tex->getResName()));
-              }
-              break;
-            case RES3D_VOLTEX:
-              ++texVolCount;
-              texVolSize += imageBytes.value();
-              if (out_text)
-              {
-                out_text->append(nau::string::format(0,
-                  "%6.2f %7s q%d  vol %4dx%-4dx%3d, m%2d, aniso=%-2d filter=%7s mip=%s, "
-                  "%s - '%s'",
-                  imageBytes.units(), imageBytes.name(), (int)ql, tex->width, tex->height, tex->depth, tex->level_count(),
-                  tex->samplerState.getAniso(), filter_type_to_string(tex->samplerState.getMinFilter()),
-                  filter_type_to_string(tex->samplerState.getMip()), img->getFormat().getNameString(), tex->getResName()));
-              }
-              break;
-            case RES3D_ARRTEX:
-              ++texArrayCount;
-              texArraySize += imageBytes.value();
-              if (out_text)
-              {
-                out_text->append(nau::string::format(0,
-                  "%6.2f %7s q%d  arr %4dx%-4dx%3d, m%2d, aniso=%-2d filter=%7s mip=%s, "
-                  "%s - '%s'",
-                  imageBytes.units(), imageBytes.name(), (int)ql, tex->width, tex->height, tex->depth, tex->level_count(),
-                  tex->samplerState.getAniso(), filter_type_to_string(tex->samplerState.getMinFilter()),
-                  filter_type_to_string(tex->samplerState.getMip()), img->getFormat().getNameString(), tex->getResName()));
-              }
-              break;
-          }
-          if (out_text)
-          {
-            if (img->isAliased())
-            {
-              out_text->append(" is alias");
-            }
-            if (num_textures)
-            {
-              out_text->append("\n");
-            }
-            else
-            {
-              out_text->append(nau::string::format(0, " cache=%d%s\n", img->getViewCount(), tql::get_tex_info(tex->getTID(), false, tmpStor)));
-            }
-          }
-        }
       });
   }
 
@@ -5516,12 +5522,12 @@ void ResourceMemoryHeap::generateResourceAndMemoryReport(uint32_t *num_textures,
 
   if (out_text)
   {
-    out_text->append(nau::string::format(256,
-      "Total: Texture %6.2f %7s over %u textures, 2D %6.2f %7s over %u, Cube %6.2f %7s "
-      "over %u, Vol %6.2f %7s over %u, Array %6.2f %7s over %u\n",
-      totalMem.units(), totalMem.name(), totalCount, tex2DSize.units(), tex2DSize.name(), tex2DCount, texCubeSize.units(),
-      texCubeSize.name(), texCubeCount, texVolSize.units(), texVolSize.name(), texVolCount, texArraySize.units(), texArraySize.name(),
-      texArrayCount));
+      out_text->append(nau::utils::format(
+          "Total: Texture %6.2f %7s over %u textures, 2D %6.2f %7s over %u, Cube %6.2f %7s "
+          "over %u, Vol %6.2f %7s over %u, Array %6.2f %7s over %u\n",
+          totalMem.units(), totalMem.name(), totalCount, tex2DSize.units(), tex2DSize.name(), tex2DCount, texCubeSize.units(),
+          texCubeSize.name(), texCubeCount, texVolSize.units(), texVolSize.name(), texVolCount, texArraySize.units(), texArraySize.name(),
+          texArrayCount));
   }
 }
 
@@ -5530,7 +5536,7 @@ void OutOfMemoryRepoter::reportOOMInformation()
   if (!didReportOOM)
   {
     didReportOOM = true;
-    nau::string texStat;
+    std::string texStat;
     // cast assumes that OutOfMemoryRepoter is a base of ResourceMemoryHeap
     static_assert((std::is_base_of<OutOfMemoryRepoter, ResourceMemoryHeap>::value));
     // can't use static cast as it respects visibility rules

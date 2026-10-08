@@ -9,7 +9,11 @@
 #include <intrin.h>
 #define COMMANDS_STORE_RETURN_ADDRESS 1
 #endif
-#include "nau/string/string.h"
+#include <string>
+#include <string_view>
+
+#include "nau/string/format.h"
+#include "nau/string/string_conv.h"
 
 #if _TARGET_C1
 
@@ -50,7 +54,7 @@ void before_lock(const void *return_address);
 void after_successful_lock(const void *return_address);
 void after_failed_lock(const void *return_address);
 void before_unlock(int lock_count);
-nau::string ptrs_to_string();
+std::string ptrs_to_string();
 bool validate_addr_store(bool is_locked);
 } // namespace lockreturnaddr
 

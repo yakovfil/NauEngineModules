@@ -3,7 +3,11 @@
 // Copyright (C) 2024  Gaijin Games KFT.  All rights reserved
 #pragma once
 
-#include "nau/string/string.h"
+#include <string>
+#include <string_view>
+
+#include "nau/string/format.h"
+#include "nau/string/string_conv.h"
 
 class D3dResource
 {
@@ -11,8 +15,14 @@ public:
   virtual void destroy() = 0;
   virtual int restype() const = 0;
   virtual int ressize() const = 0;
-  const char8_t* getResName() const { return statName.c_str(); }
-  void setResName(const char8_t *name) { statName = name ? name : u8""; } // TODO: add assert on name
+  const char8_t* getResName() const
+  {
+      return reinterpret_cast<const char8_t*>(statName.c_str());
+  }
+  void setResName(const char8_t* name)
+  {
+      statName = nau::strings::toUtf8(name);
+  }  // TODO: add assert on name
   // WARNING: This might allocate. Avoid calling it every frame.
   virtual void setResApiName(const char * /*name*/) const {}
 
@@ -20,7 +30,7 @@ protected:
   virtual ~D3dResource(){};
 
 private:
-  nau::string statName;
+    std::string statName;
 };
 
 enum

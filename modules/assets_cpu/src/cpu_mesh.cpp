@@ -386,7 +386,7 @@ namespace nau
 
     struct CpuAssetsModule : IModule
     {
-        nau::string getModuleName() override
+        std::string getModuleName() override
         {
             return "CoreAssetsCpu";
         }

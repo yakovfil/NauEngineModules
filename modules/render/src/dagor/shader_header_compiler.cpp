@@ -72,10 +72,10 @@ struct WrappedBlob final : public IDxcBlobEncoding
   }
 };
 
-nau::string make_bound_resource_table(const D3D12_SHADER_DESC &desc, ID3D12ShaderReflection *info)
+std::string make_bound_resource_table(const D3D12_SHADER_DESC& desc, ID3D12ShaderReflection* info)
 {
   const char horizonzal_line[] = "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-  nau::string result;
+  std::string result;
   result.append("Resource info:\n");
   result.append(horizonzal_line);
   result.append("Const Buffer Info:\n");
@@ -87,7 +87,7 @@ nau::string make_bound_resource_table(const D3D12_SHADER_DESC &desc, ID3D12Shade
     {
       D3D12_SHADER_BUFFER_DESC constBufferDesc = {};
       constBufferInfo->GetDesc(&constBufferDesc);
-      result.append_format("Constant buffer #%u with %u dwords\n", cbi, constBufferDesc.Size / sizeof(uint32_t));
+      result += nau::utils::format("Constant buffer #%u with %u dwords\n", cbi, constBufferDesc.Size / sizeof(uint32_t));
     }
   }
   result.append(horizonzal_line);
@@ -162,10 +162,10 @@ nau::string make_bound_resource_table(const D3D12_SHADER_DESC &desc, ID3D12Shade
         break;
     }
 
-    result.append_format("%-25s | %c%-7u | %-5u | ", typeName, registerPrefix, boundResourceInfo.BindPoint, boundResourceInfo.Space);
+    result += nau::utils::format("%-25s | %c%-7u | %-5u | ", typeName, registerPrefix, boundResourceInfo.BindPoint, boundResourceInfo.Space);
     if (boundResourceInfo.BindCount)
     {
-      result.append_format("%u\n", boundResourceInfo.BindCount);
+        result += nau::utils::format("%u\n", boundResourceInfo.BindCount);
     }
     else
     {
@@ -387,9 +387,10 @@ ShaderHeaderCompileResult dxil::compileHeaderFromReflectionData(ShaderStage stag
               (boundResourceInfo.Space >= (BINDLESS_SAMPLERS_SPACE_OFFSET + BINDLESS_SAMPLERS_SPACE_COUNT)))
           {
             result.isOk = false;
-            nau::string msg = nau::string::format("dxil::compileHeaderFromShader: Bindless sampler used on space%u, which is "
-              "not in range of space%u to space%u\n",
-              boundResourceInfo.Space, BINDLESS_SAMPLERS_SPACE_OFFSET, BINDLESS_SAMPLERS_SPACE_OFFSET + BINDLESS_SAMPLERS_SPACE_COUNT);
+            std::string msg = nau::utils::format(
+                "dxil::compileHeaderFromShader: Bindless sampler used on space%u, which is "
+                "not in range of space%u to space%u\n",
+                boundResourceInfo.Space, BINDLESS_SAMPLERS_SPACE_OFFSET, BINDLESS_SAMPLERS_SPACE_OFFSET + BINDLESS_SAMPLERS_SPACE_COUNT);
             result.logMessage += msg;
           }
 
@@ -404,10 +405,11 @@ ShaderHeaderCompileResult dxil::compileHeaderFromReflectionData(ShaderStage stag
               (boundResourceInfo.Space >= (BINDLESS_RESOURCES_SPACE_OFFSET + BINDLESS_RESOURCES_SPACE_COUNT)))
           {
             result.isOk = false;
-            nau::string msg = nau::string::format("dxil::compileHeaderFromShader: Bindless resource used on space%u, which is "
-              "not in range of space%u to space%u\n",
-              boundResourceInfo.Space, BINDLESS_RESOURCES_SPACE_OFFSET,
-              BINDLESS_RESOURCES_SPACE_OFFSET + BINDLESS_RESOURCES_SPACE_COUNT - 1);
+            std::string msg = nau::utils::format(
+                "dxil::compileHeaderFromShader: Bindless resource used on space%u, which is "
+                "not in range of space%u to space%u\n",
+                boundResourceInfo.Space, BINDLESS_RESOURCES_SPACE_OFFSET,
+                BINDLESS_RESOURCES_SPACE_OFFSET + BINDLESS_RESOURCES_SPACE_COUNT - 1);
             result.logMessage += msg;
           }
 
@@ -433,7 +435,7 @@ ShaderHeaderCompileResult dxil::compileHeaderFromReflectionData(ShaderStage stag
             else
             {
               result.isOk = false;
-              nau::string msg= nau::string::format("dxil::compileHeaderFromShader: Special constants uses invalid space%i", boundResourceInfo.Space);
+              std::string msg = nau::utils::format("dxil::compileHeaderFromShader: Special constants uses invalid space%i", boundResourceInfo.Space);
               result.logMessage += msg;
             }
           }
@@ -442,7 +444,7 @@ ShaderHeaderCompileResult dxil::compileHeaderFromReflectionData(ShaderStage stag
             if (boundResourceInfo.Space <= ROOT_CONSTANT_BUFFER_REGISTER_SPACE_OFFSET)
             {
               result.isOk = false;
-              nau::string msg= nau::string::format("dxil::compileHeaderFromShader: Root constant buffer uses invalid space%i", boundResourceInfo.Space);
+              std::string msg = nau::utils::format("dxil::compileHeaderFromShader: Root constant buffer uses invalid space%i", boundResourceInfo.Space);
               result.logMessage += msg;
             }
 
@@ -455,9 +457,10 @@ ShaderHeaderCompileResult dxil::compileHeaderFromReflectionData(ShaderStage stag
           else
           {
             result.isOk = false;
-            nau::string msg= nau::string::format("dxil::compileHeaderFromShader: Root constant buffer uses invalid b%i "
-              "register",
-              boundResourceInfo.BindPoint);
+            std::string msg = nau::utils::format(
+                "dxil::compileHeaderFromShader: Root constant buffer uses invalid b%i "
+                "register",
+                boundResourceInfo.BindPoint);
             result.logMessage += msg;
           }
         }
@@ -466,9 +469,10 @@ ShaderHeaderCompileResult dxil::compileHeaderFromReflectionData(ShaderStage stag
           if ((boundResourceInfo.BindPoint >= MAX_B_REGISTERS))
           {
             result.isOk = false;
-            nau::string msg= nau::string::format("dxil::compileHeaderFromShader: Const buffer register b%u out of range of b0 "
-              "to b%u\n",
-              boundResourceInfo.BindPoint, MAX_B_REGISTERS - 1);
+            std::string msg = nau::utils::format(
+                "dxil::compileHeaderFromShader: Const buffer register b%u out of range of b0 "
+                "to b%u\n",
+                boundResourceInfo.BindPoint, MAX_B_REGISTERS - 1);
             result.logMessage += msg;
           }
 
@@ -483,18 +487,19 @@ ShaderHeaderCompileResult dxil::compileHeaderFromReflectionData(ShaderStage stag
         if (boundResourceInfo.Space != REGULAR_RESOURCES_SPACE_INDEX)
         {
           result.isOk = false;
-          nau::string msg= nau::string::format("dxil::compileHeaderFromShader: Sampler space%u is invalid only space0 is "
-            "valid for non-bindless resources",
-            boundResourceInfo.Space);
+          std::string msg = nau::utils::format(
+              "dxil::compileHeaderFromShader: Sampler space%u is invalid only space0 is "
+              "valid for non-bindless resources",
+              boundResourceInfo.Space);
           result.logMessage += msg;
         }
         if (boundResourceInfo.BindPoint >= MAX_T_REGISTERS)
         {
           result.isOk = false;
-          nau::string msg= nau::string::format(256,
-            "dxil::compileHeaderFromShader: Sampler register s%u out of range of s0 to "
-            "s%u\n",
-            boundResourceInfo.BindPoint, MAX_T_REGISTERS - 1);
+          std::string msg = nau::utils::format(
+              "dxil::compileHeaderFromShader: Sampler register s%u out of range of s0 to "
+              "s%u\n",
+              boundResourceInfo.BindPoint, MAX_T_REGISTERS - 1);
           result.logMessage += msg;
         }
         if (result.isOk)
@@ -509,8 +514,8 @@ ShaderHeaderCompileResult dxil::compileHeaderFromReflectionData(ShaderStage stag
         if (boundResourceInfo.BindPoint >= MAX_T_REGISTERS)
         {
           result.isOk = false;
-          nau::string msg= nau::string::format(256, "dxil::compileHeaderFromShader: SRV register t%u out of range of t0 to t%u\n", boundResourceInfo.BindPoint,
-            MAX_T_REGISTERS - 1);
+          std::string msg = nau::utils::format("dxil::compileHeaderFromShader: SRV register t%u out of range of t0 to t%u\n", boundResourceInfo.BindPoint,
+                                               MAX_T_REGISTERS - 1);
           result.logMessage += msg;
         }
 
@@ -536,8 +541,8 @@ ShaderHeaderCompileResult dxil::compileHeaderFromReflectionData(ShaderStage stag
         if (boundResourceInfo.BindPoint >= MAX_U_REGISTERS)
         {
           result.isOk = false;
-          nau::string msg= nau::string::format(256, "dxil::compileHeaderFromShader: UAV register u%u out of range of u0 to u%u\n", boundResourceInfo.BindPoint,
-            MAX_U_REGISTERS - 1);
+          std::string msg = nau::utils::format("dxil::compileHeaderFromShader: UAV register u%u out of range of u0 to u%u\n", boundResourceInfo.BindPoint,
+                                               MAX_U_REGISTERS - 1);
           result.logMessage += msg;
         }
         if (result.isOk)
@@ -565,8 +570,8 @@ ShaderHeaderCompileResult dxil::compileHeaderFromReflectionData(ShaderStage stag
         if (id >= 32)
         {
           result.isOk = false;
-          nau::string msg= nau::string::format(256, "Unable to map input semantic %s with index %u to a semantic index value\n", inputInfo.SemanticName,
-            inputInfo.SemanticIndex);
+          std::string msg = nau::utils::format("Unable to map input semantic %s with index %u to a semantic index value\n", inputInfo.SemanticName,
+                                               inputInfo.SemanticIndex);
           result.logMessage += msg;
         }
         if (result.isOk)

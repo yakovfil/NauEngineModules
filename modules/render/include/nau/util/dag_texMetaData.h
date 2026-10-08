@@ -6,9 +6,12 @@
 #include <stdint.h>
 //#include <util/dag_simpleString.h>
 //#include <debug/daNAU_ASSERT.h>
-#include "nau/string/string.h"
+#include <string>
+#include <string_view>
 
 #include "nau/dataBlock/dag_dataBlock.h"
+#include "nau/string/format.h"
+#include "nau/string/string_conv.h"
 
 // encoded file string format:
 //   <file_path>?<meta_data_string>
@@ -94,7 +97,7 @@ struct TextureMetaData
   uint8_t forceLQ : 1, forceFQ : 1;
   uint8_t _resv : 2;
   int16_t iesScalingFactor, _resv2 = 0, _resv3 = 0, _resv4 = 0;
-  nau::string baseTexName;
+  std::string baseTexName;
 
   TextureMetaData() { defaults(); }
 
@@ -116,7 +119,7 @@ struct TextureMetaData
     stubTexIdx = 0;
     forceLQ = forceFQ = 0;
     _resv = 0;
-    baseTexName = NULL;
+    baseTexName.clear();
     iesScalingFactor = 0;
   }
 
@@ -185,11 +188,11 @@ struct TextureMetaData
 
   //! encodes and returns file string for given path and current metadata [uses highly temporary buffer when storage==NULL]
   //! returns NULL on invalid metadata
-  NAU_RENDER_EXPORT const char *encode(const char *fpath, nau::string *storage = NULL) const;
+  NAU_RENDER_EXPORT const char* encode(const char* fpath, std::string* storage = NULL) const;
 
   //! decodes metadata and returns file path for given file string [uses highly temporary buffer when storage==NULL]
   //! returns NULL when decoded invalid metadata
-  NAU_RENDER_EXPORT const char *decode(const char *fstring, nau::string *storage = NULL);
+  NAU_RENDER_EXPORT const char* decode(const char* fstring, std::string* storage = NULL);
 
   //! decodes metadata from given file string; returns false when decoded invalid metadata
   //! allows to avoid String allocations for file path and baseTexName when they are not needed
@@ -213,7 +216,7 @@ struct TextureMetaData
   NAU_RENDER_EXPORT static int d3dTexAddr(unsigned addr);
 
   //! returns file path for given file string [uses highly temporary buffer when storage==NULL]
-  NAU_RENDER_EXPORT static const char *decodeFileName(const char *fstring, nau::string *storage = NULL);
+  NAU_RENDER_EXPORT static const char* decodeFileName(const char* fstring, std::string* storage = NULL);
 
   //! returns pointer to baseTex name (inside fstring) or NULL if absent;
   //! baseTex is always encoded last, so it is safe to treat pointer as string

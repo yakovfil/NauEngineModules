@@ -2,11 +2,12 @@
 
 // Copyright (C) 2024  Gaijin Games KFT.  All rights reserved
 #pragma once
-#include "nau/string/string.h"
-
-
+#include <string>
+#include <string_view>
 #include <vector>
 
+#include "nau/string/format.h"
+#include "nau/string/string_conv.h"
 #include "nau/utils/dag_baseDef.h"
 //#include <generic/dag_tab.h>
 #include <stdio.h>
@@ -163,40 +164,40 @@ static inline bool parse_url(const char *url, char *host_buffer, int host_buffer
   return true;
 }
 
-static inline int parse_string_list(std::vector<nau::string>& list, const char* str, const char* prefix = "", const char* suffix = "")
+static inline int parse_string_list(std::vector<std::string>& list, const char* str, const char* prefix = "", const char* suffix = "")
 {
   list.clear();
   while (const char *p = strchr(str, '|'))
   {
     if (p - str > 0)
     {
-        nau::string tString = nau::string::format("%s%.*s%s", prefix, p - str, str, suffix);
+        std::string tString = nau::utils::format("%s%.*s%s", prefix, p - str, str, suffix);
         list.push_back(tString);//.printf(0, "%s%.*s%s", prefix, p - str, str, suffix);
     }
     str = p + 1;
   }
   if (*str)
   {
-      list.push_back(nau::string::format("%s%s%s", prefix, str, suffix));//.printf(0, "%s%s%s", prefix, str, suffix);
+      list.push_back(nau::utils::format("%s%s%s", prefix, str, suffix));  //.printf(0, "%s%s%s", prefix, str, suffix);
   }
   return list.size();
 }
 
-static inline nau::string urlencode(const nau::string &src)
+static inline std::string urlencode(const std::string& src)
 {
-  nau::string ret;
-  char sym[8] = {0};
+    std::string ret;
+    char sym[8] = {0};
 
-  for (uint32_t i = 0; i < src.length(); ++i)
-    if (isalnum(src[i]) || src[i] == '.')
-      ret += src[i];
-    else if (src[i] == ' ')
-      ret += '+';
-    else
-    {
-      snprintf(sym, sizeof(sym), "%%%02x", src[i] & 0xFF);
-      ret += sym;
-    }
+    for (uint32_t i = 0; i < src.length(); ++i)
+        if (isalnum(src[i]) || src[i] == '.')
+            ret += src[i];
+        else if (src[i] == ' ')
+            ret += '+';
+        else
+        {
+            snprintf(sym, sizeof(sym), "%%%02x", src[i] & 0xFF);
+            ret += sym;
+        }
 
   return ret;
 }
