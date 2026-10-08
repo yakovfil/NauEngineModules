@@ -33,3 +33,16 @@ build
 *.exe
 *.out
 *.app
+
+# Local dependency settings and native editor output
+CMakeUserPresets.json
+bin/
+lib/
+dist/
+logs/
+log_*.txt
+__pycache__/
+.editor/
+assets_database/
+*.nauproject.user
+.lockfile

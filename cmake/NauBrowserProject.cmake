@@ -20,7 +20,7 @@ function(nau_browser_project_delivery target)
     "-sMAXIMUM_MEMORY=${NAU_BROWSER_PROJECT_MAXIMUM_MEMORY}"
     -sALLOW_MEMORY_GROWTH=1 -sALLOW_BLOCKING_ON_MAIN_THREAD=0)
   target_link_options(${target} PRIVATE
-    "SHELL:--preload-file ${NAU_BROWSER_PROJECT_ARCHIVE}@/project-package/content.nau_pack")
+    "SHELL:--preload-file \"${NAU_BROWSER_PROJECT_ARCHIVE}@/project-package/content.nau_pack\"")
   set_property(TARGET ${target} APPEND PROPERTY LINK_DEPENDS "${NAU_BROWSER_PROJECT_ARCHIVE}")
   set(NAU_BROWSER_APPLICATION "${target}")
   set(NAU_BROWSER_PROJECT_CANVAS "")

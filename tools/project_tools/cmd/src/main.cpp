@@ -33,8 +33,8 @@ namespace nau
             .required()
             .help("Project path");
         initProjectArgs.add_argument("--preset")
-            .default_value("win_vs2026_x64_dll")
-            .help("CMake preset name");
+            .default_value("")
+            .help("CMake preset name (portable Windows Debug for portable templates, native DLL for legacy templates)");
         initProjectArgs.add_argument("--name")
             .default_value("MyProject")
             .help("Project name");

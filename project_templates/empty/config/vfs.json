@@ -13,7 +13,7 @@
             },
             {
                "mountPoint":"/res",
-               "path":"${projectDir}/resources",
+               "path":"${projectDir}/build/legacy-resources",
                "enabled":true,
                "isOptional":true
             },

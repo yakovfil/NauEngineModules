@@ -1,0 +1,53 @@
+include_guard(GLOBAL)
+
+# This outer project schedules the same driver used by generated scripts.
+# Target toolchains and compilation belong to the driver's separate inner cache.
+function(nau_packaged_project_presets target)
+  foreach(dependency ENGINE MODULES)
+    set(NAU_${dependency}_SOURCE_DIR "$ENV{NAU_${dependency}_SOURCE_DIR}" CACHE PATH "${dependency} source location")
+    if(NOT EXISTS "${NAU_${dependency}_SOURCE_DIR}/CMakeLists.txt")
+      message(FATAL_ERROR "Set NAU_${dependency}_SOURCE_DIR to the ${dependency} source directory")
+    endif()
+  endforeach()
+  set(NAU_PROJECT_PLATFORM "Windows" CACHE STRING "Windows or Web")
+  set(NAU_PROJECT_CONFIGURATION "Debug" CACHE STRING "Debug or Release")
+  set(NAU_PROJECT_DECLARATION "${PROJECT_SOURCE_DIR}/portable_project.json" CACHE FILEPATH "Project declaration")
+  set(NAU_PROJECT_PREPARED_ARCHIVE "" CACHE FILEPATH "Explicit already prepared archive")
+  if(NOT NAU_PROJECT_PLATFORM MATCHES "^(Windows|Web)$" OR NOT NAU_PROJECT_CONFIGURATION MATCHES "^(Debug|Release)$")
+    message(FATAL_ERROR "Unsupported platform/configuration selection")
+  endif()
+  get_filename_component(NAU_PROJECT_DECLARATION "${NAU_PROJECT_DECLARATION}" ABSOLUTE BASE_DIR "${PROJECT_SOURCE_DIR}")
+  if(NOT EXISTS "${NAU_PROJECT_DECLARATION}")
+    message(FATAL_ERROR "Missing declaration: ${NAU_PROJECT_DECLARATION}")
+  endif()
+  file(READ "${NAU_PROJECT_DECLARATION}" declaration)
+  string(JSON profile ERROR_VARIABLE invalid GET "${declaration}" profile)
+  if(invalid)
+    message(FATAL_ERROR "Invalid declaration: ${invalid}")
+  endif()
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  execute_process(COMMAND "${Python3_EXECUTABLE}"
+    "${NAU_MODULES_SOURCE_DIR}/tools/asset_tools/packaged_project.py"
+    --declaration "${NAU_PROJECT_DECLARATION}"
+    RESULT_VARIABLE validation_result OUTPUT_QUIET ERROR_VARIABLE validation_error)
+  if(NOT validation_result EQUAL 0)
+    message(FATAL_ERROR "Invalid declaration: ${validation_error}")
+  endif()
+  find_program(NAU_PROJECT_POWERSHELL NAMES powershell REQUIRED)
+  set(arguments -NoProfile -ExecutionPolicy Bypass -File "${PROJECT_SOURCE_DIR}/build.ps1"
+    -EngineDirectory "${NAU_ENGINE_SOURCE_DIR}" -ModulesDirectory "${NAU_MODULES_SOURCE_DIR}"
+    -Platform "${NAU_PROJECT_PLATFORM}" -Configuration "${NAU_PROJECT_CONFIGURATION}"
+    -Declaration "${NAU_PROJECT_DECLARATION}")
+  foreach(setting HostSdk HostTools UsdSdk PythonExecutable)
+    set(NAU_PROJECT_${setting} "" CACHE STRING "Optional ${setting} override")
+    if(NAU_PROJECT_${setting})
+      list(APPEND arguments -${setting} "${NAU_PROJECT_${setting}}")
+    endif()
+  endforeach()
+  if(NAU_PROJECT_PREPARED_ARCHIVE)
+    list(APPEND arguments -PreparedArchive "${NAU_PROJECT_PREPARED_ARCHIVE}")
+  endif()
+  add_custom_target(${target}Package ALL COMMAND "${NAU_PROJECT_POWERSHELL}" ${arguments} VERBATIM USES_TERMINAL)
+  add_custom_target(${target}Clean COMMAND "${NAU_PROJECT_POWERSHELL}" ${arguments} -CleanOnly VERBATIM USES_TERMINAL)
+  message(STATUS "Portable selection: ${NAU_PROJECT_DECLARATION} (${profile}), ${NAU_PROJECT_PLATFORM} ${NAU_PROJECT_CONFIGURATION}")
+endfunction()

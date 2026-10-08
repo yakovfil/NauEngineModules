@@ -37,3 +37,12 @@ nau_add_compile_options(${TargetName})
 install(TARGETS ${TargetName}
   DESTINATION bin/$<CONFIG>
 )
+
+# Keep deployed CLI templates current even when only template files change.
+add_custom_target(NauProjectTemplates ALL
+  COMMAND ${CMAKE_COMMAND} -E copy_directory "${NAU_MODULES_SOURCE_DIR}/project_templates"
+    "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/project_templates"
+  VERBATIM)
+add_dependencies(ProjectToolCmd NauProjectTemplates)
+install(DIRECTORY "${NAU_MODULES_SOURCE_DIR}/project_templates/"
+  DESTINATION bin/$<CONFIG>/project_templates)

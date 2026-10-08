@@ -1,7 +1,27 @@
 # CMakeList.txt : Top-level CMake project file, do global configuration
 # and include sub-projects here.
 #
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.24)
+
+if(NAU_PACKAGED_PROJECT_PROFILE)
+  include("${NAU_MODULES_SOURCE_DIR}/cmake/NauPackagedProject.cmake")
+  nau_add_packaged_project(%%(ProjectName:no_space)%%Main
+    ENTRY "${CMAKE_CURRENT_SOURCE_DIR}/source/portable_main.cpp"
+    MODULE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/source/game/main_module")
+  return()
+endif()
+if(NAU_PROJECT_ORCHESTRATION)
+  project(%%(ProjectName:no_space)%% LANGUAGES NONE)
+  if(NOT NAU_MODULES_SOURCE_DIR)
+    set(NAU_MODULES_SOURCE_DIR "$ENV{NAU_MODULES_SOURCE_DIR}")
+  endif()
+  if(NOT EXISTS "${NAU_MODULES_SOURCE_DIR}/cmake/NauPackagedProjectPresets.cmake")
+    message(FATAL_ERROR "Set NAU_MODULES_SOURCE_DIR to the module source repository")
+  endif()
+  include("${NAU_MODULES_SOURCE_DIR}/cmake/NauPackagedProjectPresets.cmake")
+  nau_packaged_project_presets(%%(ProjectName:no_space)%%Main)
+  return()
+endif()
 
 project(%%(ProjectName:no_space)%%)
 
@@ -19,6 +39,7 @@ if(NOT DEFINED NauEngineFolder OR NOT NauEngineFolder)
   set(NauEngineFolder "${ENV_NAU_ENGINE_SDK_DIR}")
 endif()
 
+file(TO_CMAKE_PATH "${NauEngineFolder}" NauEngineFolder)
 message(NOTICE "SDK folder ${NauEngineFolder}")
 
 if(NOT EXISTS ${NauEngineFolder}/CMakeLists.txt
@@ -61,8 +82,14 @@ include(NauModule)
 include(NauGenFunctions)
 include(platformSpec/NauPlatformSetup)
 
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+option(NAU_WEB_HOST_COMPONENTS "Build only native component registration for portable cooking" OFF)
+if(NAU_WEB_HOST_COMPONENTS)
+  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+else()
+  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/lib")
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin")
+endif()
 
 # Enable Hot Reload for MSVC compilers if supported.
 if(POLICY CMP0141)
@@ -150,6 +177,10 @@ try_inc(cmake/tools/ShaderCompilerTool/ShaderCompilerTool-config.cmake)
 
 include(source/game/%%(ProjectName:no_space)%%.cmake)
 
+if(NAU_WEB_HOST_COMPONENTS)
+  return()
+endif()
+
 file(GLOB Sources
   source/main.cpp
 )
@@ -157,6 +188,32 @@ file(GLOB Sources
 set(TargetName %%(ProjectName:no_space)%%Main)
 
 add_executable(${TargetName} ${Sources})
+
+# Legacy shaders are prepared only when building the desktop application.
+find_program(NAU_LEGACY_SHADER_COMPILER NAMES ShaderCompilerTool.exe
+  HINTS "$ENV{NAU_HOST_TOOLS_DIR}" "${NauEngineFolder}/bin/Release" REQUIRED)
+find_package(Python3 3.10 EXACT REQUIRED COMPONENTS Interpreter)
+get_filename_component(legacyPythonDirectory "${Python3_EXECUTABLE}" DIRECTORY)
+set(legacyResourceOutput "${CMAKE_CURRENT_SOURCE_DIR}/build/legacy-resources")
+set(legacyShaderOutput "${legacyResourceOutput}/shaders/cache")
+file(GLOB_RECURSE legacyShaderInputs CONFIGURE_DEPENDS
+  "${CMAKE_CURRENT_SOURCE_DIR}/resources/*")
+add_custom_command(OUTPUT "${legacyShaderOutput}/shader_cache.nsbc"
+  COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/resources" "${legacyResourceOutput}"
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${legacyShaderOutput}"
+  COMMAND ${CMAKE_COMMAND} -E env --modify "PATH=path_list_prepend:${legacyPythonDirectory}"
+    --modify "PATH=path_list_prepend:$ENV{NAU_USD_SDK_DIR}/lib"
+    --modify "PATH=path_list_prepend:${NauEngineFolder}/.."
+    "${NAU_LEGACY_SHADER_COMPILER}" -o "${legacyShaderOutput}"
+    -s "${CMAKE_CURRENT_SOURCE_DIR}/resources/shaders/src"
+    -m "${CMAKE_CURRENT_SOURCE_DIR}/resources/shaders/meta"
+    -i "${CMAKE_CURRENT_SOURCE_DIR}/resources/shaders/include"
+       "${NauEngineFolder}/include/core/modules/render/include/nau/shaders"
+    -c shader_cache.nsbc
+  DEPENDS ${legacyShaderInputs} VERBATIM)
+add_custom_target(LegacyProjectShaders DEPENDS "${legacyShaderOutput}/shader_cache.nsbc")
+add_dependencies(${TargetName} LegacyProjectShaders)
+
 
 target_precompile_headers(${TargetName} PRIVATE source/pch.h)
 

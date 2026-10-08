@@ -14,6 +14,7 @@ param(
     [string]$Declaration,
     [switch]$Run,
     [switch]$Acceptance,
+    [switch]$CleanOnly,
     [switch]$Serve,
     [ValidateRange(1, 65535)][int]$Port = 8000
 )
@@ -24,6 +25,7 @@ $engineDirectory = (Resolve-Path -LiteralPath $EngineDirectory).Path
 $modulesDirectory = (Resolve-Path -LiteralPath $ModulesDirectory).Path
 $checkout = Split-Path $engineDirectory
 if (-not $Declaration) { $Declaration = Join-Path $projectDirectory 'portable_project.json' }
+if (-not [IO.Path]::IsPathRooted($Declaration)) { $Declaration = Join-Path $projectDirectory $Declaration }
 $Declaration = (Resolve-Path -LiteralPath $Declaration).Path
 $buildRoot = Join-Path $projectDirectory 'build'
 New-Item -ItemType Directory -Force -Path $buildRoot | Out-Null
@@ -38,6 +40,32 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $policy = $policyJson | ConvertFrom-Json
 if ($policy.profile -eq 'basic-rendering-scene') {
     $build = Join-Path $buildRoot ($policy.profile + '/' + $Platform.ToLowerInvariant() + '-' + $Configuration.ToLowerInvariant())
+}
+Write-Host "Portable selection: $Declaration ($($policy.profile)), $Platform $Configuration"
+Write-Host "Delivery: $build/package"
+if ($CleanOnly) {
+    $ownedRoot = [IO.Path]::GetFullPath($buildRoot).TrimEnd('\', '/')
+    $ownedTarget = [IO.Path]::GetFullPath($build)
+    if (-not $ownedTarget.StartsWith($ownedRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Unsafe clean target: $ownedTarget"
+    }
+    # Reject junctions/symlinks along the path before recursive removal.
+    $ancestor = $ownedTarget
+    while ($ancestor -and $ancestor -ne $projectDirectory) {
+        if (Test-Path -LiteralPath $ancestor) {
+            if ((Get-Item -LiteralPath $ancestor).Attributes -band [IO.FileAttributes]::ReparsePoint) {
+                throw "Refusing clean through reparse point: $ancestor"
+            }
+        }
+        $ancestor = Split-Path $ancestor
+    }
+    if (Test-Path -LiteralPath $ownedTarget) {
+        $redirectedChild = Get-ChildItem -LiteralPath $ownedTarget -Recurse -Force |
+            Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint } | Select-Object -First 1
+        if ($redirectedChild) { throw "Refusing clean with redirected child: $($redirectedChild.FullName)" }
+        Remove-Item -LiteralPath $ownedTarget -Recurse -Force
+    }
+    exit 0
 }
 if (-not $PreparedArchive) {
 function Find-LocalDirectory($explicitPath, $candidates, $marker, $description) {

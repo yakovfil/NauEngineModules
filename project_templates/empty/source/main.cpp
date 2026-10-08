@@ -1,13 +1,14 @@
 // Copyright 2024 N-GINN LLC. All rights reserved.
 // Use of this source code is governed by a BSD-3 Clause license that can be found in the LICENSE file.
 
-
-#include <memory>
-#include <string>
-#include <string>
 #include <nau/app/core_window_manager.h>
 #include <nau/app/run_application.h>
 
+#include <fstream>
+#include <memory>
+#include <string>
+
+#include "json/json.h"
 #include "myapi.h"
 #include "nau/app/application.h"
 #include "nau/app/application_delegate.h"
@@ -19,12 +20,9 @@
 #include "nau/assets/asset_db.h"
 #include "nau/input.h"
 #include "nau/module/module_manager.h"
-#include "nau/service/service_provider.h"
-#include "nau/physics/physics_world.h"
 #include "nau/physics/core_physics.h"
-#include "json/json.h"
-
-#include <fstream>
+#include "nau/physics/physics_world.h"
+#include "nau/service/service_provider.h"
 
 #define RUN_PLATFORM_APP
 
@@ -71,6 +69,10 @@ private:
 
         auto defaultConfigResult = nau::app_utils::parseAppConfigs(projectRootDir.string());
         NAU_FATAL(defaultConfigResult.isSuccess());
+        // The legacy route keeps its startup scene when portable configs coexist.
+        auto sceneConfigResult = nau::mergePropertiesFromFile(
+            nau::getServiceProvider().get<nau::GlobalProperties>(), projectRootDir / "config/scene.json");
+        NAU_FATAL(sceneConfigResult.isSuccess());
 
         return nau::applyDefaultAppConfiguration();
     }
@@ -101,14 +103,14 @@ private:
 
         const std::filesystem::path& projectRootDir =
             std::string(reinterpret_cast<const char*>(result.value().data()), result.value().length());
-         
+
         auto physWorld = getServiceProvider().get<physics::ICorePhysics>().getDefaultPhysicsWorld();
         physWorld->resetChannelsCollisionSettings();
         std::ifstream ifs;
         const auto channelsFileName = projectRootDir / std::filesystem::path("resources/physics/channels.data");
         ifs.open(channelsFileName);
         if (!ifs)
-        {            
+        {
             NAU_LOG_ERROR("Can't load physics channel collisions from {}", channelsFileName.string());
             return;
         }
@@ -118,20 +120,20 @@ private:
         ifs >> root;
 
         const Json::Value channels = root["collisionChannels"];
-        for ( int index = 0; index < channels.size(); ++index )
+        for (int index = 0; index < channels.size(); ++index)
         {
             const auto& channel = channels[index];
             const auto channelA = channel["channel"].asInt();
 
             const Json::Value collisions = channel["collisions"];
-            for (int collisionIdx = 0; collisionIdx < collisions.size(); ++collisionIdx )
+            for (int collisionIdx = 0; collisionIdx < collisions.size(); ++collisionIdx)
             {
                 const auto channelB = collisions[collisionIdx].asInt();
                 physWorld->setChannelsCollidable(channelA, channelB);
             }
         }
     }
-    
+
     /**
      */
     void onApplicationInitialized() override
@@ -169,7 +171,7 @@ namespace
     {
         co_await nau::app_utils::loadStartupScene();
     }
-} 
+}  // namespace
 
 int main()
 {

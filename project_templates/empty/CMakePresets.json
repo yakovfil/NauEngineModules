@@ -14,7 +14,6 @@
                 "BUILD_SHARED_LIBS": false
             }
         },
-
         {
             "name": "vs_2026_base",
             "hidden": true,
@@ -24,18 +23,21 @@
             "cacheVariables": {
                 "CMAKE_CONFIGURATION_TYPES": "Debug;Release"
             },
-
             "vendor": {
                 "microsoft.com/VisualStudioSettings/CMake/1.0": {
-                    "hostOS": ["Windows"],
+                    "hostOS": [
+                        "Windows"
+                    ],
                     "intelliSenseMode": "windows-msvc-x64"
                 }
             }
         },
-
         {
             "name": "win_vs2026_x64_base",
-            "inherits": ["config_base", "vs_2026_base"],
+            "inherits": [
+                "config_base",
+                "vs_2026_base"
+            ],
             "hidden": true,
             "toolset": {
                 "strategy": "set",
@@ -46,26 +48,71 @@
                 "value": "x64"
             }
         },
-
-
         {
             "name": "win_vs2026_x64",
-            "inherits": ["win_vs2026_x64_base"],
+            "inherits": [
+                "win_vs2026_x64_base"
+            ],
             "displayName": "Visual Studio 2026 x64",
             "description": "Configure for Visual Studio 18 2026",
             "hidden": false
         },
         {
             "name": "win_vs2026_x64_dll",
-            "inherits": ["config_base", "vs_2026_base"],
+            "inherits": [
+                "config_base",
+                "vs_2026_base"
+            ],
             "displayName": "Visual Studio 2026 x64, DLL",
             "description": "Dll configure for Visual Studio 18 2026",
             "hidden": false,
             "cacheVariables": {
                 "BUILD_SHARED_LIBS": true
             }
+        },
+        {
+            "name": "portable-base",
+            "hidden": true,
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/presets/${presetName}",
+            "cacheVariables": {
+                "NAU_PROJECT_ORCHESTRATION": true,
+                "NAU_ENGINE_SOURCE_DIR": "$env{NAU_ENGINE_SOURCE_DIR}",
+                "NAU_MODULES_SOURCE_DIR": "$env{NAU_MODULES_SOURCE_DIR}"
+            }
+        },
+        {
+            "name": "portable-windows-debug",
+            "inherits": "portable-base",
+            "cacheVariables": {
+                "NAU_PROJECT_PLATFORM": "Windows",
+                "NAU_PROJECT_CONFIGURATION": "Debug"
+            }
+        },
+        {
+            "name": "portable-windows-release",
+            "inherits": "portable-base",
+            "cacheVariables": {
+                "NAU_PROJECT_PLATFORM": "Windows",
+                "NAU_PROJECT_CONFIGURATION": "Release"
+            }
+        },
+        {
+            "name": "portable-web-debug",
+            "inherits": "portable-base",
+            "cacheVariables": {
+                "NAU_PROJECT_PLATFORM": "Web",
+                "NAU_PROJECT_CONFIGURATION": "Debug"
+            }
+        },
+        {
+            "name": "portable-web-release",
+            "inherits": "portable-base",
+            "cacheVariables": {
+                "NAU_PROJECT_PLATFORM": "Web",
+                "NAU_PROJECT_CONFIGURATION": "Release"
+            }
         }
-
     ],
     "buildPresets": [
         {
@@ -91,6 +138,22 @@
             "displayName": "Visual Studio Community 2026 x64 Release",
             "configurePreset": "win_vs2026_x64_dll",
             "configuration": "Release"
+        },
+        {
+            "name": "portable-windows-debug",
+            "configurePreset": "portable-windows-debug"
+        },
+        {
+            "name": "portable-windows-release",
+            "configurePreset": "portable-windows-release"
+        },
+        {
+            "name": "portable-web-debug",
+            "configurePreset": "portable-web-debug"
+        },
+        {
+            "name": "portable-web-release",
+            "configurePreset": "portable-web-release"
         }
     ]
 }

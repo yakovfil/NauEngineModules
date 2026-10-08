@@ -1,10 +1,12 @@
 // Copyright 2024 N-GINN LLC. All rights reserved.
 // Use of this source code is governed by a BSD-3 Clause license that can be found in the LICENSE file.
 
-
 #include "nau/project_tools/project_manager.h"
 
+#include <cstdlib>
 #include <format>
+#include <fstream>
+#include <set>
 #include <sstream>
 #include <string>
 
@@ -63,21 +65,207 @@ namespace nau
         return false;
     }
 
+    struct ProjectPreset
+    {
+        std::filesystem::path binaryDirectory;
+        std::string generator;
+        nlohmann::json variables;
+    };
+
+    static void replaceAll(std::string& value, const std::string& token, const std::string& replacement)
+    {
+        size_t position = 0;
+        while ((position = value.find(token, position)) != std::string::npos)
+        {
+            value.replace(position, token.size(), replacement);
+            position += replacement.size();
+        }
+    }
+
+    static ProjectPreset resolvePreset(const std::filesystem::path& projectPath, const std::string& name)
+    {
+        std::map<std::string, nlohmann::json> presets;
+        std::set<std::filesystem::path> loaded;
+        std::function<void(std::filesystem::path)> load = [&](std::filesystem::path path)
+        {
+            path = std::filesystem::weakly_canonical(path);
+            if (!loaded.insert(path).second)
+                return;
+            std::ifstream input(path);
+            if (!input)
+                throw std::runtime_error("Cannot read preset file: " + path.string());
+            const auto document = nlohmann::json::parse(input);
+            if (document.contains("include"))
+            {
+                for (const auto& include : document["include"])
+                    load(path.parent_path() / include.get<std::string>());
+            }
+            for (const auto& preset : document.value("configurePresets", nlohmann::json::array()))
+                presets.emplace(preset.at("name").get<std::string>(), preset);
+        };
+        load(projectPath / "CMakePresets.json");
+        if (std::filesystem::exists(projectPath / "CMakeUserPresets.json"))
+            load(projectPath / "CMakeUserPresets.json");
+        std::set<std::string> active;
+        std::function<nlohmann::json(const std::string&)> merge = [&](const std::string& key)
+        {
+            if (!active.insert(key).second)
+                throw std::runtime_error("Preset inheritance cycle");
+            const auto& preset = presets.at(key);
+            nlohmann::json result = nlohmann::json::object();
+            if (preset.contains("inherits"))
+            {
+                const auto parents = preset["inherits"].is_array() ? preset["inherits"] : nlohmann::json::array({preset["inherits"]});
+                // CMake gives earlier parents precedence.
+                for (auto it = parents.rbegin(); it != parents.rend(); ++it)
+                    result.merge_patch(merge(it->get<std::string>()));
+            }
+            result.merge_patch(preset);
+            active.erase(key);
+            return result;
+        };
+        const auto selected = merge(name);
+        std::string directory = selected.at("binaryDir").get<std::string>();
+        replaceAll(directory, "${sourceDir}", std::filesystem::absolute(projectPath).generic_string());
+        replaceAll(directory, "${sourceParentDir}", std::filesystem::absolute(projectPath).parent_path().generic_string());
+        replaceAll(directory, "${sourceDirName}", projectPath.filename().string());
+        replaceAll(directory, "${presetName}", name);
+        size_t offset = 0;
+        while ((offset = directory.find("$env{")) != std::string::npos)
+        {
+            const auto close = directory.find('}', offset);
+            if (close == std::string::npos)
+                throw std::runtime_error("Malformed environment macro");
+            const auto variable = directory.substr(offset + 5, close - offset - 5);
+            const auto value = std::getenv(variable.c_str());
+            if (!value)
+                throw std::runtime_error("Missing environment variable: " + variable);
+            directory.replace(offset, close - offset + 1, value);
+        }
+        if (directory.find('$') != std::string::npos)
+            throw std::runtime_error("Unsupported binaryDir macro; use sourceDir, presetName or environment paths");
+        auto binary = std::filesystem::path(directory);
+        if (binary.is_relative())
+            binary = projectPath / binary;
+        return {std::filesystem::absolute(binary).lexically_normal(), selected.value("generator", ""),
+                selected.value("cacheVariables", nlohmann::json::object())};
+    }
+
+    static void validateCleanPath(const std::filesystem::path& projectPath, const std::filesystem::path& target)
+    {
+        const auto root = std::filesystem::weakly_canonical(projectPath / "build");
+        if (root != (std::filesystem::weakly_canonical(projectPath) / "build"))
+            throw std::runtime_error("Refusing to clean a redirected build directory");
+        const auto relative = std::filesystem::weakly_canonical(target).lexically_relative(root);
+        if (relative.empty() || relative == "." || *relative.begin() == ".." || relative.is_absolute())
+            throw std::runtime_error("Refusing to clean outside a selected subdirectory of project build");
+        const auto first = relative.begin()->string();
+        if (first == "portable-host-components" || first.starts_with("prepared-") ||
+            relative.generic_string() == "basic-rendering-scene" ||
+            (first == "basic-rendering-scene" && std::next(relative.begin()) != relative.end() && std::next(relative.begin())->string().starts_with("prepared-")))
+            throw std::runtime_error("Refusing to clean shared host/preparation outputs");
+        for (auto current = target; !current.empty(); current = current.parent_path())
+        {
+            if (std::filesystem::is_symlink(std::filesystem::symlink_status(current)))
+                throw std::runtime_error("Refusing to clean through a symbolic link");
+            if (current == current.parent_path())
+                break;
+        }
+        if (std::filesystem::exists(target))
+        {
+            for (const auto& entry : std::filesystem::recursive_directory_iterator(target))
+            {
+                if (std::filesystem::is_symlink(entry.symlink_status()))
+                    throw std::runtime_error("Refusing to clean a directory containing symbolic links");
+            }
+        }
+    }
+
+    static int configureProject(const std::filesystem::path& projectPath, const std::string& preset, bool clean)
+    {
+        try
+        {
+            const auto selected = resolvePreset(projectPath, preset);
+            if (clean)
+            {
+                validateCleanPath(projectPath, selected.binaryDirectory);
+                auto orchestration = selected.variables.value("NAU_PROJECT_ORCHESTRATION", nlohmann::json(false));
+                if (orchestration.is_object())
+                    orchestration = orchestration.at("value");
+                const bool portable = orchestration == true || orchestration == "ON" || orchestration == "TRUE" || orchestration == "1";
+                if (portable)
+                {
+                    const auto platform = selected.variables.at("NAU_PROJECT_PLATFORM").get<std::string>();
+                    const auto configuration = selected.variables.at("NAU_PROJECT_CONFIGURATION").get<std::string>();
+                    IProcessWorker worker;
+                    auto command = std::format("powershell -NoProfile -ExecutionPolicy Bypass -File \"{}\" -Platform {} -Configuration {} -CleanOnly",
+                                               (projectPath / "build.ps1").string(), platform, configuration);
+                    for (const auto& [cacheName, argument] : std::vector<std::pair<std::string, std::string>>{
+                             {"NAU_PROJECT_DECLARATION",      "Declaration"},
+                             {  "NAU_ENGINE_SOURCE_DIR",  "EngineDirectory"},
+                             { "NAU_MODULES_SOURCE_DIR", "ModulesDirectory"}
+                    })
+                    {
+                        if (!selected.variables.contains(cacheName))
+                            continue;
+                        auto value = selected.variables[cacheName];
+                        if (value.is_object())
+                            value = value.at("value");
+                        if (!value.is_string())
+                            throw std::runtime_error("Invalid preset path setting");
+                        auto path = value.get<std::string>();
+                        replaceAll(path, "${sourceDir}", projectPath.generic_string());
+                        if (path.starts_with("$env{") && path.ends_with("}"))
+                        {
+                            const auto variable = path.substr(5, path.size() - 6);
+                            const auto resolved = std::getenv(variable.c_str());
+                            if (!resolved)
+                                throw std::runtime_error("Missing environment variable: " + variable);
+                            path = resolved;
+                        }
+                        if (path.find('"') != std::string::npos || path.find('$') != std::string::npos)
+                            throw std::runtime_error("Unsupported preset path expression");
+                        command += std::format(" -{} \"{}\"", argument, path);
+                    }
+                    if (worker.runProcess(command) != 0)
+                        return ErrorCode::internalError;
+                }
+                std::filesystem::remove_all(selected.binaryDirectory);
+            }
+            IProcessWorker worker;
+            return worker.runProcess(std::format("cmake -S \"{}\" --preset \"{}\"", projectPath.string(), preset));
+        }
+        catch (const std::exception& error)
+        {
+            LOG_ERROR("Project configuration failed: {}", error.what());
+            return ErrorCode::invalidArgumentsError;
+        }
+    }
+
     static int openIde(const std::filesystem::path& projectPath, const std::string& projectName, const std::string& preset, FileSystem& fs)
     {
-        const std::filesystem::path idePath = projectPath / "build" / std::format("{}.{}", projectName, util::getIdeExtension(preset));
-
-        if (!fs.exist(idePath))
+        try
         {
-            LOG_WARN("Could not find IDE executable!\nIDE executable is not found at path {}", idePath.string());
-            return 1;
+            const auto selected = resolvePreset(projectPath, preset);
+            if (selected.generator.find("Visual Studio") == std::string::npos)
+            {
+                LOG_ERROR("This preset has no Visual Studio solution; use its generated build commands.");
+                return ErrorCode::invalidArgumentsError;
+            }
+            const auto idePath = selected.binaryDirectory / std::format("{}.{}", projectName, util::getIdeExtension(preset));
+            if (!fs.exist(idePath))
+            {
+                LOG_ERROR("Selected preset solution does not exist");
+                return ErrorCode::invalidPathError;
+            }
+            const auto command = std::format("start \"\" \"{}\"", idePath.string());
+            return std::system(command.c_str());
         }
-
-        LOG_INFO("Opening IDE...");
-
-        const std::string ideArgs = std::format("start {}", idePath.string());
-
-        return std::system(ideArgs.c_str());
+        catch (const std::exception& error)
+        {
+            LOG_ERROR("{}", error.what());
+            return ErrorCode::invalidArgumentsError;
+        }
     }
 
     int NauInitProjectJob::run(const CommonArguments* const params)
@@ -87,6 +275,9 @@ namespace nau
         const std::filesystem::path projectPath = std::filesystem::path(args->projectPath) / args->projectName;
 
         FileSystem fs;
+        const std::string preset = args->cMakePreset.empty()
+                                       ? (fs.exist(pathToTemplate / "portable_project.json") ? "portable-windows-debug" : "win_vs2026_x64_dll")
+                                       : args->cMakePreset;
 
         if (!fs.exist(pathToTemplate))
         {
@@ -109,7 +300,7 @@ namespace nau
             {          "AssetsPath",                                 assetsPath},
             {         "ProjectName",                          args->projectName},
             {        "TemplateName",                         args->templateName},
-            {         "CMakePreset",                          args->cMakePreset},
+            {         "CMakePreset",                                     preset},
             {         "ContentOnly",          std::to_string(args->contentOnly)},
             {"GenerateSolutionFile", std::to_string(args->generateSolutionFile)}
         };
@@ -198,53 +389,21 @@ namespace nau
             }
         }
 
-        NAU_ASSERT(nau::util::checkEnvironmentVariables(), "Invalid environment!");
-
+        // Portable scaffolding needs no compiler or desktop shader tool.
+        // Legacy templates retain their existing shader preparation.
+        if (!fs.exist(finalPath / "portable_project.json"))
         {
-            const std::filesystem::path shadersResourcesDir = finalPath / "resources" / "shaders";
-
-            LOG_INFO("Compiling shaders...");
-
-            if (!compileShaders(shadersResourcesDir, fs))
-            {
-                LOG_ERROR("Could not compile shaders!");
-            }
-
-            LOG_INFO("Compiling ui shaders...");
-
-            if (!compileShaders(finalPath / "resources" / "ui" / "shaders", fs))
-            {
-                LOG_ERROR("Could not compile ui shaders!");
-            }
-
-            LOG_INFO("Shaders compiled!");
+            NAU_ASSERT(nau::util::checkEnvironmentVariables(), "Invalid environment!");
+            if (!compileShaders(finalPath / "resources" / "shaders", fs))
+                return result("Could not compile legacy shaders", ErrorCode::internalError);
+            NAU_ASSERT(nau::util::validateEnvironment(), "Invalid environment!");
         }
-
-        NAU_ASSERT(nau::util::validateEnvironment(), "Invalid environment!");
-
-        // Generate CMake project if argument is set
-        // Starts a new popen process and read output
         if (args->generateSolutionFile)
         {
-            const std::filesystem::path buildPath = projectPath / "build";
-
-            LOG_INFO("Generating solution file at path {}", buildPath.string());
-
-            const std::string makeArgs = std::format("cmake -B {} -S {} --preset {} -A x64", buildPath.string(), projectPath.string(), args->cMakePreset);
-
-            IProcessWorker process;
-
-            if (const int processResult = process.runProcess(makeArgs); processResult != 0)
-            {
-                return result("Could not generate solution file!", ErrorCode::internalError);
-            }
-
-            LOG_INFO("Solution generated at path {}", buildPath.string());
-
+            if (configureProject(finalPath, preset, false) != 0)
+                return result("Could not configure selected project preset", ErrorCode::internalError);
             if (args->openIde)
-            {
-                openIde(finalPath, args->projectName, args->cMakePreset, fs);
-            }
+                return openIde(finalPath, args->projectName, preset, fs);
         }
 
         return 0;
@@ -256,29 +415,11 @@ namespace nau
 
         FileSystem fs;
 
-        std::filesystem::path pathToBuild = std::filesystem::path(args->projectPath) / "build";
-        const std::filesystem::path projectPath = std::filesystem::path(args->projectPath);
-
-        if (fs.exist(pathToBuild))
-        {
-            LOG_INFO("Deleting old build directory at path {}", pathToBuild.string());
-
-            fs.deleteDirectory(pathToBuild);
-        }
-
-        const std::string makeArgs = std::format("cmake -B {} -S {} --preset {} -A x64", pathToBuild.string(), projectPath.string(), args->cMakePreset);
-
-        IProcessWorker process;
-
-        if (const int processResult = process.runProcess(makeArgs); processResult != 0)
-        {
-            return result("Could not generate solution file!", ErrorCode::internalError);
-        }
-
+        const auto projectPath = std::filesystem::absolute(args->projectPath);
+        if (configureProject(projectPath, args->cMakePreset, true) != 0)
+            return result("Could not regenerate selected project preset", ErrorCode::internalError);
         if (args->openIde)
-        {
-            openIde(projectPath, args->projectName, args->cMakePreset, fs);
-        }
+            return openIde(projectPath, args->projectName, args->cMakePreset, fs);
 
         return 0;
     }

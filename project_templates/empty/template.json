@@ -44,13 +44,17 @@
 	  "Rename": false,
 	  "Lowercase": false
 	}
+    ,{
+      "Name": "build.ps1",
+      "UpdateContent": true,
+      "Rename": false
+    }
   ], 
   "Exclude": 
   {
     "Condition": "Always",
     "List": 
 	[
-      ".gitignore",
       ".clangd",
 	  ".clang-format",
 	  "template.json"
