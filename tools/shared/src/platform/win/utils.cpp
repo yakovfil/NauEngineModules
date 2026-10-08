@@ -3,6 +3,7 @@
 
 
 #if defined(_WIN32) || defined(_WIN64)
+#include "nau/shared/utf8_path.h"
 #include "nau/shared/platform/win/utils.h"
 
 #include <windows.h>
@@ -31,24 +32,22 @@ namespace nau
         CoInitialize(NULL);
 
         HRESULT hres;
-        IShellLink* psl;
+        IShellLinkW* psl;
 
-        hres = CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLink, (LPVOID*)&psl);
+        hres = CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLinkW, (LPVOID*)&psl);
         if (SUCCEEDED(hres))
         {
             IPersistFile* ppf;
 
-            psl->SetPath(from.c_str());
+            const auto source = pathFromUtf8(from).wstring();
+            psl->SetPath(source.c_str());
 
             hres = psl->QueryInterface(IID_IPersistFile, (LPVOID*)&ppf);
 
             if (SUCCEEDED(hres))
             {
-                WCHAR wsz[MAX_PATH];
-
-                MultiByteToWideChar(CP_ACP, 0, to.c_str(), -1, wsz, MAX_PATH);
-
-                hres = ppf->Save(wsz, TRUE);
+                const auto destination = pathFromUtf8(to).wstring();
+                hres = ppf->Save(destination.c_str(), TRUE);
                 ppf->Release();
             }
             psl->Release();

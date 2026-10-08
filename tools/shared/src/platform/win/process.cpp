@@ -1,7 +1,6 @@
 // Copyright 2024 N-GINN LLC. All rights reserved.
 // Use of this source code is governed by a BSD-3 Clause license that can be found in the LICENSE file.
 
-
 #if defined(_WIN32) || defined(_WIN64)
     #include "nau/shared/platform/win/process.h"
 
@@ -52,18 +51,26 @@ namespace nau
         startUpInfo.hStdError = hStdOutWrite;
 
         // Start the child process.
-        std::wstring temp = std::wstring(args.begin(), args.end());
-        LPWSTR command = (LPWSTR)temp.c_str();
+        const int count = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, args.data(), static_cast<int>(args.size()), nullptr, 0);
+        if (count <= 0)
+        {
+            CloseHandle(hStdOutWrite);
+            CloseHandle(hStdOutRead);
+            return ErrorCode::invalidArgumentsError;
+        }
+        std::wstring temp(count, L'\0');
+        MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, args.data(), static_cast<int>(args.size()), temp.data(), count);
+        LPWSTR command = temp.data();
         if (!CreateProcessW(nullptr,
-            command,
-            nullptr,
-            nullptr,
-            true,
-            0,
-            nullptr,
-            nullptr,
-            &startUpInfo,
-            &processInfo))
+                            command,
+                            nullptr,
+                            nullptr,
+                            true,
+                            0,
+                            nullptr,
+                            nullptr,
+                            &startUpInfo,
+                            &processInfo))
         {
             LOG_ERROR("CreateProcess with args {} failed. Error {}", args, GetLastError());
             CloseHandle(hStdOutWrite);

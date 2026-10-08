@@ -17,6 +17,7 @@
 #include "nau/service/service_provider.h"
 #include "nau/shared/error_codes.h"
 #include "nau/shared/logger.h"
+#include "nau/shared/utf8_path.h"
 #include "nau/shared/macro.h"
 
 namespace nau
@@ -38,12 +39,12 @@ namespace nau
                 if (!args->projectModules.empty())
                 {
                     NauCheckResult(loadModulesList(args->projectModules));
-                    const auto database = std::filesystem::path(projectPath) / "assets_database";
+                    const auto database = pathFromUtf8(projectPath) / "assets_database";
                     std::filesystem::create_directories(database);
                     auto& vfs = getServiceProvider().get<io::IVirtualFileSystem>();
                     NauCheckResult(vfs.mount("/content", io::createNativeFileSystem(
-                                                             (std::filesystem::path(projectPath) / "content").string())));
-                    NauCheckResult(vfs.mount("/assets_database", io::createNativeFileSystem(database.string())));
+                                                             pathToUtf8(pathFromUtf8(projectPath) / "content"))));
+                    NauCheckResult(vfs.mount("/assets_database", io::createNativeFileSystem(pathToUtf8(database))));
                     const auto databaseFile = database / "database.db";
                     if (std::filesystem::exists(databaseFile) && std::filesystem::file_size(databaseFile) != 0)
                         getServiceProvider().get<IAssetDB>().addAssetDB("/assets_database/database.db");

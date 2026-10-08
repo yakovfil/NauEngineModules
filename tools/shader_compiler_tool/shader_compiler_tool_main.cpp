@@ -1,16 +1,21 @@
 // Copyright 2024 N-GINN LLC. All rights reserved.
 // Use of this source code is governed by a BSD-3 Clause license that can be found in the LICENSE file.
 
+#include <windows.h>
 
 #include <filesystem>
 #include <format>
 #include <iostream>
+#include <vector>
 
 #include "nau/diag/error.h"
 #include "nau/io/file_system.h"
 #include "nau/string/string_conv.h"
 #include "nau/utils/result.h"
 #include "shader_cache_builder.h"
+#include "shader_path.h"
+
+using nau::shaderPathUtf8;
 
 namespace fs = std::filesystem;
 
@@ -43,7 +48,7 @@ nau::Result<Args> parseArguments(int argc, char* argv[]);
 
 void printUsage(std::string_view appName);
 
-int main(int argc, char* argv[])
+int runCompiler(int argc, char* argv[])
 {
     using namespace nau;
 
@@ -58,7 +63,7 @@ int main(int argc, char* argv[])
     const bool isSingleSource = fs::is_regular_file(args->shadersPath) && fs::is_regular_file(args->metafilesPath);
     if (isSingleSource && args->shaderCacheName.empty())
     {
-        args->shaderCacheName = std::format("{}{}", args->shadersPath.stem().string(), Extension);
+        args->shaderCacheName = std::format("{}{}", shaderPathUtf8(args->shadersPath.stem()), Extension);
     }
 
     nau::ShaderCacheBuilder builder;
@@ -67,10 +72,10 @@ int main(int argc, char* argv[])
     {
         ShaderCacheBuilder::StreamFactory streamFactory = [&args](std::string_view shaderName) -> io::IStreamWriter::Ptr
         {
-            fs::path fullPath = args->outDir / fs::path(shaderName);
+            fs::path fullPath = args->outDir / fs::u8path(shaderName);
             fullPath += Extension;
 
-            const std::string fullPathStr = fullPath.string();
+            const std::string fullPathStr = shaderPathUtf8(fullPath);
 
             return io::createNativeFileStream(fullPathStr.c_str(), io::AccessMode::Write, io::OpenFileMode::CreateAlways);
         };
@@ -82,13 +87,13 @@ int main(int argc, char* argv[])
             return EXIT_FAILURE;
         }
 
-        std::cout << std::format("Done building shader cache files: {}\n", args->outDir.string());
+        std::cout << std::format("Done building shader cache files: {}\n", shaderPathUtf8(args->outDir));
     }
     else
     {
         ShaderCacheBuilder::StreamFactory streamFactory = [&args](std::string_view shaderName) -> io::IStreamWriter::Ptr
         {
-            fs::path shaderCacheFilePath = args->outDir / args->shaderCacheName;
+            fs::path shaderCacheFilePath = args->outDir / fs::u8path(args->shaderCacheName);
             const std::string ext = shaderCacheFilePath.extension().string();
             if (ext != Extension)
             {
@@ -96,7 +101,7 @@ int main(int argc, char* argv[])
                 shaderCacheFilePath.replace_extension(Extension);
             }
 
-            const std::string fullPathStr = shaderCacheFilePath.string();
+            const std::string fullPathStr = shaderPathUtf8(shaderCacheFilePath);
 
             return io::createNativeFileStream(fullPathStr.c_str(), io::AccessMode::Write, io::OpenFileMode::CreateAlways);
         };
@@ -108,7 +113,7 @@ int main(int argc, char* argv[])
             return EXIT_FAILURE;
         }
 
-        std::cout << std::format("Done building shader cache: {}\n", (args->outDir / args->shaderCacheName).string());
+        std::cout << std::format("Done building shader cache: {}\n", shaderPathUtf8(args->outDir / fs::u8path(args->shaderCacheName)));
     }
 
     if (args->embedDebugInfo)
@@ -118,7 +123,7 @@ int main(int argc, char* argv[])
 
     if (args->debugOutputDir.has_value())
     {
-        std::cout << std::format("PDB files were saved to: {}\n", args->debugOutputDir->string());
+        std::cout << std::format("PDB files were saved to: {}\n", shaderPathUtf8(*args->debugOutputDir));
     }
 
     return EXIT_SUCCESS;
@@ -146,10 +151,10 @@ nau::Result<Args> parseArguments(int argc, char* argv[])
         {
             if (i + 1 < argc && argv[i + 1][0] != '-')
             {
-                args.outDir = argv[i + 1];
+                args.outDir = fs::u8path(argv[i + 1]);
                 if (!fs::create_directory(args.outDir) && !fs::is_directory(args.outDir))
                 {
-                    return NauMakeError("This is not a directory or does not exist ({}/{}): {}\n", OutKey, OutFullKey, args.outDir.string());
+                    return NauMakeError("This is not a directory or does not exist ({}/{}): {}\n", OutKey, OutFullKey, shaderPathUtf8(args.outDir));
                 }
                 hasOutDir = true;
                 i++;
@@ -163,7 +168,7 @@ nau::Result<Args> parseArguments(int argc, char* argv[])
         {
             if (i + 1 < argc && argv[i + 1][0] != '-')
             {
-                args.shadersPath = argv[i + 1];
+                args.shadersPath = fs::u8path(argv[i + 1]);
                 hasShadersDir = true;
                 i++;
             }
@@ -176,7 +181,7 @@ nau::Result<Args> parseArguments(int argc, char* argv[])
         {
             if (i + 1 < argc && argv[i + 1][0] != '-')
             {
-                args.metafilesPath = argv[i + 1];
+                args.metafilesPath = fs::u8path(argv[i + 1]);
                 hasMetafilesDir = true;
                 i++;
             }
@@ -200,10 +205,10 @@ nau::Result<Args> parseArguments(int argc, char* argv[])
         {
             while (i + 1 < argc && argv[i + 1][0] != '-')
             {
-                args.includeDirs.emplace_back(argv[i + 1]);
+                args.includeDirs.emplace_back(fs::u8path(argv[i + 1]));
                 if (!fs::is_directory(args.includeDirs.back()))
                 {
-                    return NauMakeError("This is not a directory or does not exist ({}/{}): {}\n", IncludesKey, IncludesFullKey, args.includeDirs.back().string());
+                    return NauMakeError("This is not a directory or does not exist ({}/{}): {}\n", IncludesKey, IncludesFullKey, shaderPathUtf8(args.includeDirs.back()));
                 }
                 i++;
             }
@@ -216,10 +221,10 @@ nau::Result<Args> parseArguments(int argc, char* argv[])
         {
             if (i + 1 < argc && argv[i + 1][0] != '-')
             {
-                args.debugOutputDir = argv[i + 1];
+                args.debugOutputDir = fs::u8path(argv[i + 1]);
                 if (!fs::create_directory(args.debugOutputDir.value()) && !fs::is_directory(args.debugOutputDir.value()))
                 {
-                    return NauMakeError("This is not a directory or does not exist ({}/{}): {}\n", DebugOutKey, DebugOutFullKey, args.debugOutputDir->string());
+                    return NauMakeError("This is not a directory or does not exist ({}/{}): {}\n", DebugOutKey, DebugOutFullKey, shaderPathUtf8(*args.debugOutputDir));
                 }
                 i++;
             }
@@ -254,7 +259,7 @@ nau::Result<Args> parseArguments(int argc, char* argv[])
 
 void printUsage(std::string_view appName)
 {
-    const fs::path fullName(appName);
+    const fs::path fullName = fs::u8path(appName);
 
     std::cout << std::format(
         "Usage: {} -o <output_directory> -s <shaders_path> -m <metafiles_path> "
@@ -262,7 +267,7 @@ void printUsage(std::string_view appName)
         "[-c <shader_cache_name>] "
         "[-Do <pdb_output_directory>] "
         "[-De]\n",
-        fullName.filename().string());
+        shaderPathUtf8(fullName.filename()));
 
     std::cout << "\nOptions:\n";
     std::cout << "  -h, --help             Display this help message and exit.\n";
@@ -273,4 +278,28 @@ void printUsage(std::string_view appName)
     std::cout << "  -c, --cache            Name of the shader cache file to be created (optional).\n";
     std::cout << "  -Do, --debug-out       Specify directory to output PDB files for debugging (optional).\n";
     std::cout << "  -De, --debug-embed     Embed debug information into the shader bytecode (optional).\n";
+}
+
+int wmain(int argc, wchar_t* wide[])
+{
+    try
+    {
+        std::vector<std::string> values;
+        std::vector<char*> arguments;
+        values.reserve(argc);
+        for (int i = 0; i < argc; ++i)
+        {
+            const auto value = nau::strings::wstringToUtf8(wide[i]);
+            values.emplace_back(reinterpret_cast<const char*>(value.data()), value.size());
+        }
+        for (auto& value : values)
+            arguments.push_back(value.data());
+        arguments.push_back(nullptr);
+        return runCompiler(argc, arguments.data());
+    }
+    catch (const std::exception& error)
+    {
+        std::cerr << "Shader compilation failed: " << error.what() << '\n';
+        return EXIT_FAILURE;
+    }
 }

@@ -6,6 +6,9 @@
 
 #include <filesystem>
 #include <map>
+#include <concepts>
+#include <utility>
+#include "nau/shared/utf8_path.h"
 
 #include "nau/shared/api.h"
 
@@ -86,6 +89,29 @@ namespace nau
         void createFile(const std::filesystem::path& path);
         int countFiles(const std::filesystem::path& path);
         std::string findExtension(const std::filesystem::path& path, const std::string& fileName);
+#define NAU_FILE_SYSTEM_UTF8_OVERLOAD(Method) \
+        template <typename TPath, typename... TArgs> requires std::convertible_to<TPath, std::string_view> \
+        decltype(auto) Method(TPath&& path, TArgs&&... args) \
+        { return Method(pathFromUtf8(std::string_view(path)), std::forward<TArgs>(args)...); }
+        NAU_FILE_SYSTEM_UTF8_OVERLOAD(isEmpty)
+        NAU_FILE_SYSTEM_UTF8_OVERLOAD(exist)
+        NAU_FILE_SYSTEM_UTF8_OVERLOAD(existInFolder)
+        NAU_FILE_SYSTEM_UTF8_OVERLOAD(createDirectoryRecursive)
+        NAU_FILE_SYSTEM_UTF8_OVERLOAD(readFile)
+        NAU_FILE_SYSTEM_UTF8_OVERLOAD(readBinaryFile)
+        NAU_FILE_SYSTEM_UTF8_OVERLOAD(writeFile)
+        NAU_FILE_SYSTEM_UTF8_OVERLOAD(writeBinaryFile)
+        NAU_FILE_SYSTEM_UTF8_OVERLOAD(removeAllFilesByName)
+        NAU_FILE_SYSTEM_UTF8_OVERLOAD(findAllFilesByName)
+        NAU_FILE_SYSTEM_UTF8_OVERLOAD(findAllFiles)
+        NAU_FILE_SYSTEM_UTF8_OVERLOAD(getFileInfo)
+        NAU_FILE_SYSTEM_UTF8_OVERLOAD(findFirst)
+        NAU_FILE_SYSTEM_UTF8_OVERLOAD(createFile)
+        NAU_FILE_SYSTEM_UTF8_OVERLOAD(countFiles)
+        NAU_FILE_SYSTEM_UTF8_OVERLOAD(findExtension)
+        NAU_FILE_SYSTEM_UTF8_OVERLOAD(deleteFile)
+        NAU_FILE_SYSTEM_UTF8_OVERLOAD(deleteDirectory)
+#undef NAU_FILE_SYSTEM_UTF8_OVERLOAD
         template <typename... args>
         void moveAll(const std::filesystem::path& to, args&&... params)
         {

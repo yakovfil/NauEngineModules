@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "nau/shared/utf8_path.h"
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -33,7 +34,7 @@ namespace nau
 
     inline static AssetMetaInfo makeAssetMetaInfo(const std::string& path, const nau::Uid& uid, const std::string& dbPath, const std::string& type, const std::string& kind, bool sourceAsMeta = false)
     {
-        const std::string sorceRelativePath = FileSystemExtensions::getRelativeAssetPath(std::filesystem::path(path), true).string();
+        const std::string sorceRelativePath = pathToUtf8(FileSystemExtensions::getRelativeAssetPath(pathFromUtf8(path), true));
 
         AssetMetaInfo result;
         result.uid = uid;
@@ -46,7 +47,7 @@ namespace nau
             ? (sorceRelativePath + ".nausd").c_str()
             : (sorceRelativePath + "." + type + ".nausd").c_str();
         result.dirty = false;
-        result.lastModified = std::filesystem::last_write_time(std::filesystem::path(path)).time_since_epoch().count();
+        result.lastModified = std::filesystem::last_write_time(pathFromUtf8(path)).time_since_epoch().count();
 
         return result;
     }

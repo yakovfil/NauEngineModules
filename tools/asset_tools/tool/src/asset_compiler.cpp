@@ -63,7 +63,7 @@ namespace nau
             return NauMakeError("File {} not found!", sourceFilePath);
         }
 
-        auto ext = std::filesystem::path(sourceFilePath).extension().string();
+        auto ext = std::filesystem::u8path(sourceFilePath).extension().string();
 
         std::shared_ptr<compilers::IAssetCompiler> compiler = getAssetCompiler(ext.substr(1));
 

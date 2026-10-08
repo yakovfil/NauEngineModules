@@ -1,3 +1,4 @@
+#include "nau/shared/utf8_path.h"
 // Copyright 2024 N-GINN LLC. All rights reserved.
 // Use of this source code is governed by a BSD-3 Clause license that can be found in the LICENSE file.
 
@@ -53,12 +54,12 @@ namespace nau
             return false;
         }
 
-        auto stage = PXR_NS::UsdStage::CreateInMemory(dest.string());
+        auto stage = PXR_NS::UsdStage::CreateInMemory(pathToUtf8(dest));
         if (!it->second->generate(stage, args))
         {
             return false;
         }
-        return stage->GetRootLayer()->Export(dest.string());
+        return stage->GetRootLayer()->Export(pathToUtf8(dest));
     }
 
     bool UsdMetaGenerator::addFileGenerator(const std::set<std::string>& extentions, IMetaGenerator::Ptr generator)
@@ -116,7 +117,7 @@ namespace nau
 
         if (PXR_NS::UsdAttribute attr = target.CreateAttribute("path"_tftoken, PXR_NS::SdfValueTypeNames->Asset))
         {
-            attr.Set(PXR_NS::SdfAssetPath(sourceAssetPath.filename().string()));
+            attr.Set(PXR_NS::SdfAssetPath(pathToUtf8(sourceAssetPath.filename())));
         }
 
         return target;
@@ -124,7 +125,7 @@ namespace nau
 
     bool UsdMetaGenerator::write(const std::filesystem::path& path, PXR_NS::UsdStageRefPtr stage) const
     {
-        return stage->GetRootLayer()->Export(path.string() + ".nausd");
+        return stage->GetRootLayer()->Export(pathToUtf8(path) + ".nausd");
     }
 
     std::map<PXR_NS::TfToken, nau::MetaArgs> UsdMetaGenerator::getArgs(const std::filesystem::path& path) const
@@ -134,9 +135,9 @@ namespace nau
 
         if (containerExt.find(ext) != containerExt.end())
         {
-            auto stage = PXR_NS::UsdStage::CreateInMemory(path.string());
+            auto stage = PXR_NS::UsdStage::CreateInMemory(pathToUtf8(path));
             auto assetPrim = stage->DefinePrim(PXR_NS::SdfPath("/Asset"));
-            if (!assetPrim.SetPayload(path.string(), PXR_NS::SdfPath("")))
+            if (!assetPrim.SetPayload(pathToUtf8(path), PXR_NS::SdfPath("")))
             {
                 return std::move(out);
             }
@@ -193,7 +194,7 @@ namespace nau
             return nullptr;
         }
 
-        auto stage = PXR_NS::UsdStage::CreateInMemory(path.string());
+        auto stage = PXR_NS::UsdStage::CreateInMemory(pathToUtf8(path));
 
         if (!it->second->generate(path, stage, args))
         {
@@ -205,10 +206,10 @@ namespace nau
 
     PXR_NS::UsdStageRefPtr UsdMetaGenerator::processContainer(const std::filesystem::path& path, const MetaArgs& args)
     {
-        auto srcStage = PXR_NS::UsdStage::Open(path.string());
+        auto srcStage = PXR_NS::UsdStage::Open(pathToUtf8(path));
         if (containsRetiredUi(srcStage))
         {
-            LOG_ERROR("UI asset {} is unsupported: the Cocos2d-backed UI implementation has been retired.", path.string());
+            LOG_ERROR("UI asset {} is unsupported: the Cocos2d-backed UI implementation has been retired.", pathToUtf8(path));
             return nullptr;
         }
         if (!srcStage)
@@ -216,14 +217,14 @@ namespace nau
             return nullptr;
         }
 
-        auto stage = PXR_NS::UsdStage::CreateInMemory(path.string() + ".nausd");
+        auto stage = PXR_NS::UsdStage::CreateInMemory(pathToUtf8(path) + ".nausd");
         auto rootPath = PXR_NS::SdfPath("/Asset");
         auto assetPrim = stage->DefinePrim(rootPath);
 
         for (auto child : srcStage->GetPseudoRoot().GetAllChildren())
         {
             auto destPrim = stage->DefinePrim(rootPath.AppendChild(child.GetName()));
-            if (!destPrim.SetPayload(path.string(), child.GetPath()))
+            if (!destPrim.SetPayload(pathToUtf8(path), child.GetPath()))
             {
                 return nullptr;
             }

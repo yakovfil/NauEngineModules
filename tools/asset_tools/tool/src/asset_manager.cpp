@@ -92,10 +92,10 @@ namespace nau
         iterators::iterateMeta(metaArray, [&](nau::UsdMetaInfo& metaInfo)
         {
             metaInfo.assetPath = metaInfo.assetSourcePath.empty() 
-                ? assetPath.string() 
-                : (assetSourcePath / metaInfo.assetSourcePath).string();
+                ? pathToUtf8(assetPath)
+                : pathToUtf8(assetSourcePath / std::filesystem::u8path(metaInfo.assetSourcePath));
 
-            if (std::filesystem::path(metaInfo.assetPath).extension().string().empty())
+            if (std::filesystem::u8path(metaInfo.assetPath).extension().string().empty())
             {
                 LOG_WARN("Asset {} has no extension, adding .nausd by default!", metaInfo.assetPath);
                 metaInfo.assetPath += ".nausd";
@@ -118,7 +118,7 @@ namespace nau
     {
         auto dbMeta = dbManager.get(metaInfo.uid);
         auto& sourcePath = metaInfo.assetPath;
-        auto lastTimeWrite = std::filesystem::last_write_time(sourcePath).time_since_epoch().count();
+        auto lastTimeWrite = std::filesystem::last_write_time(std::filesystem::u8path(sourcePath)).time_since_epoch().count();
 
         const bool dirty = dbMeta.isError() || lastTimeWrite > dbMeta->lastModified || !dbManager.exist(metaInfo.uid) || !dbManager.compiled(metaInfo.uid);
 
@@ -131,13 +131,13 @@ namespace nau
 
         FileSystem fs;
 
-        const std::filesystem::path assets = std::filesystem::path(args->projectPath) / getAssetsSubfolderDefaultName();
-        const std::filesystem::path assetsDb = std::filesystem::path(args->projectPath) / getAssetsDBfolderName();
+        const std::filesystem::path assets = std::filesystem::u8path(args->projectPath) / getAssetsSubfolderDefaultName();
+        const std::filesystem::path assetsDb = std::filesystem::u8path(args->projectPath) / getAssetsDBfolderName();
         const std::filesystem::path dbFilePath = assetsDb / getAssetsDbName();
 
         // Set assets path, different to executable path
         auto& paths = Paths::instance();
-        paths.setPath("assets", assets.string());
+        paths.setPath("assets", pathToUtf8(assets));
 
         NAU_ASSERT(nau::util::validateEnvironment(), "Invalid environment!");
 
@@ -152,51 +152,51 @@ namespace nau
 
         if (!fs.exist(assets) || fs.isEmpty(assets))
         {
-            return result(std::format("Assets not found at path {}", assets.string()), ErrorCode::invalidPathError);
+            return result(std::format("Assets not found at path {}", pathToUtf8(assets)), ErrorCode::invalidPathError);
         }
 
-        const std::filesystem::path assetPath = std::filesystem::path(args->assetPath);
+        const std::filesystem::path assetPath = std::filesystem::u8path(args->assetPath);
 
         AssetDatabaseManager& dbManager = AssetDatabaseManager::instance();
 
-        NAU_VERIFY(dbManager.load(assetsDb.string()), "Failed to load assets database!");
+        NAU_VERIFY(dbManager.load(pathToUtf8(assetsDb)), "Failed to load assets database!");
         NAU_LOG("Assets database loaded, {} assets registered!", dbManager.size());
 
         if (!assetPath.empty())
         {
             if (!fs.exist(assetPath) || fs.isEmpty(assetPath))
             {
-                return result(std::format("Asset not found at path {}", assetPath.string()), ErrorCode::invalidPathError);
+                return result(std::format("Asset not found at path {}", pathToUtf8(assetPath)), ErrorCode::invalidPathError);
             }
 
             std::vector<AssetMetaInfo> assetsList;
 
-            FileInfo file = fs.getFileInfo(assetPath.string());
+            FileInfo file = fs.getFileInfo(pathToUtf8(assetPath));
 
             if (file.extension == ".nausd")
             {
-                const std::filesystem::path path = std::filesystem::path(assetPath.string());
+                const std::filesystem::path path = assetPath;
 
-                if (compileSingleAsset(fs.getFileInfo(path.string()), assetsDb.string(), args->projectPath, dbManager, fs, assetsList))
+                if (compileSingleAsset(fs.getFileInfo(pathToUtf8(path)), pathToUtf8(assetsDb), args->projectPath, dbManager, fs, assetsList))
                 {
                     dbManager.save();
 
-                    LOG_INFO("File {} imported and compiled successfully", assetPath.string());
+                    LOG_INFO("File {} imported and compiled successfully", pathToUtf8(assetPath));
                 }
                 else
                     return ErrorCode::internalError;
             }
             else
             {
-                if (importSingleAsset(file, assetsDb.string(), dbManager, fs))
+                if (importSingleAsset(file, pathToUtf8(assetsDb), dbManager, fs))
                 {
-                    const std::filesystem::path metafilePath = std::filesystem::path(assetPath.string() + ".nausd");
+                    const std::filesystem::path metafilePath = std::filesystem::u8path(pathToUtf8(assetPath) + ".nausd");
 
-                    if (compileSingleAsset(fs.getFileInfo(metafilePath.string()), assetsDb.string(), args->projectPath, dbManager, fs, assetsList))
+                    if (compileSingleAsset(fs.getFileInfo(pathToUtf8(metafilePath)), pathToUtf8(assetsDb), args->projectPath, dbManager, fs, assetsList))
                     {
                         dbManager.save();
 
-                        LOG_INFO("File {} imported and compiled successfully", assetPath.string());
+                        LOG_INFO("File {} imported and compiled successfully", pathToUtf8(assetPath));
                     }
                     else
                         return ErrorCode::internalError;
@@ -271,7 +271,7 @@ namespace nau
 
         try
         {
-            auto compilationResult = compileAsset(stage, meta, dbPath.string(), projectRootPath, *assetDbIndex);
+            auto compilationResult = compileAsset(stage, meta, pathToUtf8(dbPath), projectRootPath, *assetDbIndex);
 
             if (compilationResult.isError())
             {
@@ -282,7 +282,7 @@ namespace nau
             {
                 AssetMetaInfo info = *compilationResult;
 
-                auto lastModified = std::filesystem::last_write_time(meta.assetPath).time_since_epoch().count();
+                auto lastModified = std::filesystem::last_write_time(std::filesystem::u8path(meta.assetPath)).time_since_epoch().count();
 
                 // Import asset into asset database only if compilation was successful
                 db.addOrReplace(info);
@@ -329,12 +329,12 @@ namespace nau
             return result(std::format("Project not found at path {}", args->projectPath), ErrorCode::invalidPathError);
         }
 
-        const std::filesystem::path assets = std::filesystem::path(args->projectPath) / getAssetsSubfolderDefaultName();
-        const std::filesystem::path assetsDb = std::filesystem::path(args->projectPath) / getAssetsDBfolderName();
+        const std::filesystem::path assets = std::filesystem::u8path(args->projectPath) / getAssetsSubfolderDefaultName();
+        const std::filesystem::path assetsDb = std::filesystem::u8path(args->projectPath) / getAssetsDBfolderName();
 
         if (!fs.exist(assets) || fs.isEmpty(assets))
         {
-            return result(std::format("Assets not found at path {}", assets.string()), ErrorCode::invalidPathError);
+            return result(std::format("Assets not found at path {}", pathToUtf8(assets)), ErrorCode::invalidPathError);
         }
 
         static thread_local std::vector<FileInfo> files;
@@ -363,8 +363,8 @@ namespace nau
     {
         const std::string ext = file.extension.substr(file.extension.find('.') + 1);
 
-        const std::filesystem::path fileFullPath = std::filesystem::path(file.path + file.extension);
-        const std::filesystem::path metafilePath = std::filesystem::path(fileFullPath.string() + ".nausd");
+        const std::filesystem::path fileFullPath = std::filesystem::u8path(file.path + file.extension);
+        const std::filesystem::path metafilePath = std::filesystem::u8path(pathToUtf8(fileFullPath) + ".nausd");
 
         UsdMetaGenerator& metaGenerator = UsdMetaGenerator::instance();
         UsdMetaManager& metaManager = UsdMetaManager::instance();
@@ -379,7 +379,7 @@ namespace nau
         {
             LOG_WARN("Asset {} has no meta file, generating...", file.path);
 
-            auto stage = metaGenerator.generate(fileFullPath.string());
+            auto stage = metaGenerator.generate(fileFullPath);
 
             if (!stage)
             {
@@ -406,7 +406,7 @@ namespace nau
                 }
             });
 
-            [[maybe_unused]] auto result = metaGenerator.write(fileFullPath.string(), stage);
+            [[maybe_unused]] auto result = metaGenerator.write(fileFullPath, stage);
 
             LOG_INFO("Asset {} meta file generated", file.path);
         }
@@ -421,12 +421,12 @@ namespace nau
             return result(std::format("Project not found at path {}", args->projectPath), ErrorCode::invalidPathError);
         }
 
-        const std::filesystem::path assets = std::filesystem::path(args->projectPath) / getAssetsSubfolderDefaultName();
-        const std::filesystem::path assetsDb = std::filesystem::path(args->projectPath) / getAssetsDBfolderName();
+        const std::filesystem::path assets = std::filesystem::u8path(args->projectPath) / getAssetsSubfolderDefaultName();
+        const std::filesystem::path assetsDb = std::filesystem::u8path(args->projectPath) / getAssetsDBfolderName();
 
         if (!fs.exist(assets) || fs.isEmpty(assets))
         {
-            return result(std::format("Assets not found at path {}", assets.string()), ErrorCode::invalidPathError);
+            return result(std::format("Assets not found at path {}", pathToUtf8(assets)), ErrorCode::invalidPathError);
         }
 
         UsdMetaManager& metaManager = UsdMetaManager::instance();
@@ -458,7 +458,7 @@ namespace nau
 
             auto meta = metaManager.getInfo(metafilePath);
 
-            updateMetaPath(meta, std::filesystem::path(file.path).parent_path(), metafilePath);
+            updateMetaPath(meta, std::filesystem::u8path(file.path).parent_path(), std::filesystem::u8path(metafilePath));
 
             auto compilationResultMeta = updateAssetInDatabase(stage, meta, assetsDb, args->projectPath, db, fs);
 
@@ -492,7 +492,7 @@ namespace nau
 
         auto meta = metaManager.getInfo(metafilePath);
 
-        updateMetaPath(meta, std::filesystem::path(file.path).parent_path(), metafilePath);
+        updateMetaPath(meta, std::filesystem::u8path(file.path).parent_path(), std::filesystem::u8path(metafilePath));
 
         auto compilationResultMeta = updateAssetInDatabase(stage, meta, dbPath, projectRootPath, db, fs);
 

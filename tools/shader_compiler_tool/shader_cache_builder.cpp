@@ -14,6 +14,7 @@
 #include "nau/memory/bytes_buffer.h"
 #include "nau/platform/windows/utils/uid.h"
 #include "nau/serialization/runtime_value_builder.h"
+#include "shader_path.h"
 
 namespace nau
 {
@@ -42,8 +43,7 @@ namespace nau
         };
         static_assert(
             std::size(Targets) == static_cast<size_t>(ShaderTarget::Count),
-            "Targets array size does not match the number of ShaderTarget enum values"
-        );
+            "Targets array size does not match the number of ShaderTarget enum values");
 
         Result<ShaderTarget> stringToShaderTarget(std::string_view target)
         {
@@ -66,8 +66,7 @@ namespace nau
             NAU_CLASS_FIELDS(
                 CLASS_FIELD(shaderName),
                 CLASS_FIELD(blobOffset),
-                CLASS_FIELD(blobSize)
-            )
+                CLASS_FIELD(blobSize))
         };
 
         struct ShaderPackContainerData
@@ -77,8 +76,7 @@ namespace nau
 
             NAU_CLASS_FIELDS(
                 CLASS_FIELD(shaders),
-                CLASS_FIELD(byteCode)
-            )
+                CLASS_FIELD(byteCode))
         };
 
         Result<> writeShadersPack(const io::IStreamWriter::Ptr& outStream, std::vector<Shader>&& shaders)
@@ -110,23 +108,22 @@ namespace nau
         {
             if (!fs::exists(shadersPath))
             {
-                return NauMakeError("File or directory does not exist: {}", shadersPath.string());
+                return NauMakeError("File or directory does not exist: {}", shaderPathUtf8(shadersPath));
             }
 
             if (!fs::exists(metafilesPath))
             {
-                return NauMakeError("File or directory does not exist: {}", metafilesPath.string());
+                return NauMakeError("File or directory does not exist: {}", shaderPathUtf8(metafilesPath));
             }
 
-            if (fs::is_regular_file(shadersPath) && fs::is_directory(metafilesPath)
-                || fs::is_directory(shadersPath) && fs::is_regular_file(metafilesPath))
+            if (fs::is_regular_file(shadersPath) && fs::is_directory(metafilesPath) || fs::is_directory(shadersPath) && fs::is_regular_file(metafilesPath))
             {
-                return NauMakeError("Shaders and metafiles must either both be directories or both be files:\n{}\n{}", shadersPath.string(), metafilesPath.string());
+                return NauMakeError("Shaders and metafiles must either both be directories or both be files:\n{}\n{}", shaderPathUtf8(shadersPath), shaderPathUtf8(metafilesPath));
             }
 
             return ResultSuccess;
         }
-    } // anonymous namespace
+    }  // anonymous namespace
 
     Result<> ShaderCacheBuilder::makeCache(StreamFactory streamFactory, const Arguments& args)
     {
@@ -226,7 +223,7 @@ namespace nau
 
         if (files.empty())
         {
-            return NauMakeError("No files collected: {}", directory.string());
+            return NauMakeError("No files collected: {}", shaderPathUtf8(directory));
         }
 
         return files;
@@ -283,7 +280,7 @@ namespace nau
         {
             for (const auto& permutation : meta.permutations)
             {
-                std::string shaderName = filename.stem().string();
+                std::string shaderName = shaderPathUtf8(filename.stem());
                 shaderName += ".";
 
                 if (permutation.name != "regular")
@@ -292,7 +289,10 @@ namespace nau
                 }
 
                 std::string ep = config.entry;
-                std::ranges::transform(ep, ep.begin(), [](unsigned char c) { return std::tolower(c); });
+                std::ranges::transform(ep, ep.begin(), [](unsigned char c)
+                {
+                    return std::tolower(c);
+                });
 
                 shaderName += Targets[static_cast<size_t>(config.stage)];
                 shaderName += "." + ep;
@@ -301,7 +301,7 @@ namespace nau
                 if (pdbDir.has_value())
                 {
                     const std::string pdbName = shaderName + ".pdb";
-                    pdbFilename = (*pdbDir / pdbName).string();
+                    pdbFilename = *pdbDir / fs::u8path(pdbName);
                 }
 
                 NauCheckResult(compiler->compile(config.stage, config.entry, permutation.defines, includeDirs, pdbFilename, needEmbedDebug));
@@ -320,7 +320,7 @@ namespace nau
         const std::ifstream file(filename.c_str());
         if (!file)
         {
-            return NauMakeError("Metafile is corrupted or not found: {}", filename.string());
+            return NauMakeError("Metafile is corrupted or not found: {}", shaderPathUtf8(filename));
         }
 
         std::stringstream buffer;
@@ -331,7 +331,7 @@ namespace nau
         DataBlock metadata;
         if (!metadata.loadText(text.data(), text.length()))
         {
-            return NauMakeError("Can not parse file: {}", filename.string());
+            return NauMakeError("Can not parse file: {}", shaderPathUtf8(filename));
         }
 
         ShaderMeta meta;
@@ -339,7 +339,7 @@ namespace nau
         const DataBlock* configs = metadata.getBlockByNameEx(ConfigsBlockName);
         if (!configs || configs->blockCount() == 0)
         {
-            return NauMakeError("Metafile does not contain block '{}' or is missing: {}", ConfigsBlockName, filename.string());
+            return NauMakeError("Metafile does not contain block '{}' or is missing: {}", ConfigsBlockName, shaderPathUtf8(filename));
         }
 
         for (auto i = 0; i < configs->blockCount(); ++i)
@@ -349,13 +349,13 @@ namespace nau
             const char* stageStr = configs->getBlock(i)->getStr(Stage);
             if (!stageStr || strlen(stageStr) == 0)
             {
-                return NauMakeError("Field '{}' is required for config: {}", Stage, filename.string());
+                return NauMakeError("Field '{}' is required for config: {}", Stage, shaderPathUtf8(filename));
             }
 
             const char* entry = configs->getBlock(i)->getStr(Entry);
             if (!entry || strlen(entry) == 0)
             {
-                return NauMakeError("Field '{}' is required for config: {}", Entry, filename.string());
+                return NauMakeError("Field '{}' is required for config: {}", Entry, shaderPathUtf8(filename));
             }
 
             auto stage = stringToShaderTarget(stageStr);
@@ -377,13 +377,13 @@ namespace nau
                 const char* stream = vsdBlock->getStr(Stream);
                 if (!stream || strlen(stream) == 0)
                 {
-                    return NauMakeError("Field '{}' is required for vertex shader declaration: {}", Stream, filename.string());
+                    return NauMakeError("Field '{}' is required for vertex shader declaration: {}", Stream, shaderPathUtf8(filename));
                 }
 
                 const int32_t number = vsdBlock->getInt(Number);
                 if (number < 0)
                 {
-                    return NauMakeError("Field '{}' must be positive: {}", Number, filename.string());
+                    return NauMakeError("Field '{}' must be positive: {}", Number, shaderPathUtf8(filename));
                 }
 
                 vsd.stream = stream;
@@ -391,7 +391,7 @@ namespace nau
 
                 if (vsdBlock->blockCount() == 0)
                 {
-                    return NauMakeError("Block '{}' is required for vertex shader declaration and must contain at least one register: {}", VsdRegBlockName, filename.string());
+                    return NauMakeError("Block '{}' is required for vertex shader declaration and must contain at least one register: {}", VsdRegBlockName, shaderPathUtf8(filename));
                 }
 
                 vsd.vsdReg.reserve(vsdBlock->blockCount());
@@ -402,13 +402,13 @@ namespace nau
                     const char* semanticName = vsdBlock->getBlock(j)->getStr(SemanticName);
                     if (!semanticName || strlen(semanticName) == 0)
                     {
-                        return NauMakeError("Field '{}' is required for register: {}", SemanticName, filename.string());
+                        return NauMakeError("Field '{}' is required for register: {}", SemanticName, shaderPathUtf8(filename));
                     }
 
                     const char* type = vsdBlock->getBlock(j)->getStr(Type);
                     if (!type || strlen(type) == 0)
                     {
-                        return NauMakeError("Field '{}' is required for register: {}", Type, filename.string());
+                        return NauMakeError("Field '{}' is required for register: {}", Type, shaderPathUtf8(filename));
                     }
 
                     reg.semanticName = semanticName;
@@ -420,7 +420,7 @@ namespace nau
         const DataBlock* permutations = metadata.getBlockByNameEx(PermutationsBlockName);
         if (!permutations || permutations->blockCount() == 0)
         {
-            return NauMakeError("Block '{}' is required and must contain at least the 'Regular' permutation: {}", PermutationsBlockName, filename.string());
+            return NauMakeError("Block '{}' is required and must contain at least the 'Regular' permutation: {}", PermutationsBlockName, shaderPathUtf8(filename));
         }
 
         for (auto i = 0; i < permutations->blockCount(); ++i)
@@ -430,7 +430,7 @@ namespace nau
             const char* name = permutations->getBlock(i)->getStr(Name);
             if (!name || strlen(name) == 0)
             {
-                return NauMakeError("Field '{}' is required for permutation: {}", Name, filename.string());
+                return NauMakeError("Field '{}' is required for permutation: {}", Name, shaderPathUtf8(filename));
             }
 
             permutation.name = name;
@@ -445,4 +445,4 @@ namespace nau
 
         return meta;
     }
-} // namespace nau
+}  // namespace nau

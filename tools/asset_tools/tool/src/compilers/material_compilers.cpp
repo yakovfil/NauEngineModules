@@ -119,8 +119,8 @@ namespace nau
             auto data = serialization::JsonUtils::stringify(material);
             namespace fs = std::filesystem;
 
-            const std::filesystem::path basePath = std::filesystem::path(outputPath) / std::to_string(folderIndex);
-            std::string out = (basePath / toString(info.uid)).string() + ".nmat_json";
+            const std::filesystem::path basePath = std::filesystem::u8path(outputPath) / std::to_string(folderIndex);
+            std::string out = pathToUtf8(basePath / toString(info.uid)) + ".nmat_json";
 
             if (!fs::exists(basePath))
             {
@@ -128,11 +128,11 @@ namespace nau
             }
 
             std::ofstream output;
-            output.open(out.c_str());
+            output.open(std::filesystem::u8path(out));
             output << std::string(data.begin(), data.end());
             output.close();
 
-            if (fs::exists(out))
+            if (output && fs::exists(std::filesystem::u8path(out)))
             {
                 return makeAssetMetaInfo(info.assetPath, info.uid, std::format("{}/{}{}", folderIndex, toString(info.uid), ext().data()), "nausd", "Material", true);
             }

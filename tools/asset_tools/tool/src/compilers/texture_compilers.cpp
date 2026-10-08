@@ -25,6 +25,7 @@
 #include "nau/service/service_provider.h"
 #include "nau/shared/file_system.h"
 #include "nau/shared/logger.h"
+#include "nau/shared/utf8_path.h"
 
 namespace nau
 {
@@ -68,10 +69,14 @@ namespace nau
             FileSystem fs;
             auto& vfs = getServiceProvider().get<io::IFileSystem>();
 
-            std::string sourceRelativePath = FileSystemExtensions::getRelativeAssetPath(path, true).string();
+            std::string sourceRelativePath = pathToUtf8(FileSystemExtensions::getRelativeAssetPath(pathFromUtf8(path), true));
             std::string fileRelativePath = std::format("project/{}/{}.{}", getAssetsSubfolderDefaultName() , sourceRelativePath, textureSourceExtension);
 
             auto file = vfs.openFile(fileRelativePath, io::AccessMode::Read, io::OpenFileMode::OpenExisting);
+            if (!file)
+            {
+                return NauMakeError("Cannot open texture {}", fileRelativePath);
+            }
             auto loader = getTextureLoader(textureSourceExtension);
 
             if (!loader)
@@ -79,14 +84,14 @@ namespace nau
                 return NauMakeError("No texture loader found for extension {}!", textureSourceExtension);
             }
 
-            const std::filesystem::path subPath = std::filesystem::path(outputPath) / std::to_string(folderIndex) / std::string(toString(metaInfo.uid) + ext.data());
+            const std::filesystem::path subPath = pathFromUtf8(outputPath) / std::to_string(folderIndex) / std::string(toString(metaInfo.uid) + ext.data());
 
             if (!std::filesystem::exists(subPath.parent_path()))
             {
                 std::filesystem::create_directories(subPath.parent_path());
             }
 
-            std::string output = subPath.string();
+            std::string output = pathToUtf8(subPath);
 
             if (!saveDdsTexture(file, loader, output, textureSourceExtension))
             {

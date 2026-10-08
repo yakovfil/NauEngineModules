@@ -14,41 +14,43 @@
 #include <string_view>
 #include <unordered_set>
 
+#include "shader_path.h"
+
 #ifndef _UNICODE
-    #define NAU_TCHAR_ERROR(handle)                                                         \
-        {                                                                                   \
-            return NauMakeError(_com_error(handle).ErrorMessage());                         \
+    #define NAU_TCHAR_ERROR(handle)                                 \
+        {                                                           \
+            return NauMakeError(_com_error(handle).ErrorMessage()); \
         }
-    #define NAU_TCHAR_ERROR_FORMAT(handle, format)                                          \
-        {                                                                                   \
-            return NauMakeError(format, _com_error(handle).ErrorMessage());                 \
+    #define NAU_TCHAR_ERROR_FORMAT(handle, format)                          \
+        {                                                                   \
+            return NauMakeError(format, _com_error(handle).ErrorMessage()); \
         }
     #define NAU_VERIFY_SUCCEEDED(expr)                                                                                                                                                  \
         {                                                                                                                                                                               \
             const auto hRes = (expr);                                                                                                                                                   \
             static_assert(std::is_same_v<std::remove_const_t<decltype(hRes)>, ::HRESULT>, "Expected HRESULT");                                                                          \
-            if(FAILED(hRes))                                                                                                                                                            \
+            if (FAILED(hRes))                                                                                                                                                           \
             {                                                                                                                                                                           \
                 std::cerr << std::format("Expression {} failed with error code {:#08x}: {}", (#expr), static_cast<unsigned long>(hRes), _com_error(hRes).ErrorMessage()) << std::flush; \
             }                                                                                                                                                                           \
         }
 #else
-    #define NAU_TCHAR_ERROR(handle)                                                         \
-        {                                                                                   \
-            const std::wstring error = _com_error(handle).ErrorMessage();                   \
-            return NauMakeError(std::string(error.begin(), error.end()));                   \
+    #define NAU_TCHAR_ERROR(handle)                                       \
+        {                                                                 \
+            const std::wstring error = _com_error(handle).ErrorMessage(); \
+            return NauMakeError(std::string(error.begin(), error.end())); \
         }
-    #define NAU_TCHAR_ERROR_FORMAT(handle, format)                                          \
-        {                                                                                   \
-            const std::wstring error = _com_error(handle).ErrorMessage();                   \
-            return NauMakeError(format, std::string(error.begin(), error.end()));           \
+    #define NAU_TCHAR_ERROR_FORMAT(handle, format)                                \
+        {                                                                         \
+            const std::wstring error = _com_error(handle).ErrorMessage();         \
+            return NauMakeError(format, std::string(error.begin(), error.end())); \
         }
     #define NAU_VERIFY_SUCCEEDED(expr)                                                                                                                                                          \
         {                                                                                                                                                                                       \
             const auto hRes = (expr);                                                                                                                                                           \
             static_assert(std::is_same_v<std::remove_const_t<decltype(hRes)>, ::HRESULT>, "Expected HRESULT");                                                                                  \
             const std::wstring error = _com_error(hRes).ErrorMessage();                                                                                                                         \
-            if(FAILED(hRes))                                                                                                                                                                    \
+            if (FAILED(hRes))                                                                                                                                                                   \
             {                                                                                                                                                                                   \
                 std::cerr << std::format("Expression {} failed with error code {:#08x}: {}", (#expr), static_cast<unsigned long>(hRes), std::string(error.begin(), error.end())) << std::flush; \
             }                                                                                                                                                                                   \
@@ -72,8 +74,7 @@ namespace nau
         };
         static_assert(
             std::size(EntryPoints) == static_cast<size_t>(ShaderTarget::Count),
-            "EntryPoints array size does not match the number of ShaderTarget enum values"
-        );
+            "EntryPoints array size does not match the number of ShaderTarget enum values");
 
         constexpr LPCWSTR TargetProfiles[] = {
             L"vs_6_0",
@@ -85,8 +86,7 @@ namespace nau
         };
         static_assert(
             std::size(TargetProfiles) == static_cast<size_t>(ShaderTarget::Count),
-            "TargetProfiles array size does not match the number of ShaderTarget enum values"
-        );
+            "TargetProfiles array size does not match the number of ShaderTarget enum values");
 
         class IncludeHandler final : public IDxcIncludeHandler
         {
@@ -210,18 +210,18 @@ namespace nau
             std::ofstream file(filename, std::ios::binary | std::ios::out);
             if (!file)
             {
-                return NauMakeError("Failed to create file: {}", fs::path(filename).string());
+                return NauMakeError("Failed to create file: {}", shaderPathUtf8(fs::path(filename)));
             }
 
             file.write(static_cast<const char*>(data), size);
             if (!file)
             {
-                return NauMakeError("Failed to write data to file: {}", fs::path(filename).string());
+                return NauMakeError("Failed to write data to file: {}", shaderPathUtf8(fs::path(filename)));
             }
 
             return ResultSuccess;
         }
-    } // anonymous namespace
+    }  // anonymous namespace
 
     class ShaderCompilerImpl final
     {
@@ -298,7 +298,7 @@ namespace nau
         }
 
         Shader shader;
-        shader.srcName = m_filename.filename().string().c_str();
+        shader.srcName = shaderPathUtf8(m_filename.filename()).c_str();
         shader.target = *m_target;
         shader.entryPoint = m_entry.c_str();
         shader.reflection = std::move(*reflection);
@@ -379,8 +379,7 @@ namespace nau
         const DxcBuffer sourceBuffer = {
             .Ptr = m_source->GetBufferPointer(),
             .Size = m_source->GetBufferSize(),
-            .Encoding = DXC_CP_ACP
-        };
+            .Encoding = DXC_CP_ACP};
 
         m_includeHandler.ClearIncludedFiles();
 
@@ -493,8 +492,7 @@ namespace nau
         const DxcBuffer data = {
             .Ptr = reflectionData->GetBufferPointer(),
             .Size = reflectionData->GetBufferSize(),
-            .Encoding = DXC_CP_ACP
-        };
+            .Encoding = DXC_CP_ACP};
 
         ComPtr<ID3D12ShaderReflection> reflection = nullptr;
         result = m_utils->CreateReflection(&data, IID_PPV_ARGS(&reflection));
@@ -537,8 +535,7 @@ namespace nau
                     .componentType = static_cast<RegisterComponentType>(d3d12Desc.ComponentType),
                     .mask = d3d12Desc.Mask,
                     .readWriteMask = d3d12Desc.ReadWriteMask,
-                    .stream = d3d12Desc.Stream
-                };
+                    .stream = d3d12Desc.Stream};
 
                 shaderReflection.signatureParams.push_back(desc);
             }
@@ -671,4 +668,4 @@ namespace nau
     {
         return m_pimpl->getReflection();
     }
-} // namespace nau
+}  // namespace nau

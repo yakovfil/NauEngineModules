@@ -1,6 +1,7 @@
 // Copyright 2024 N-GINN LLC. All rights reserved.
 // Use of this source code is governed by a BSD-3 Clause license that can be found in the LICENSE file.
 
+#include "nau/shared/utf8_path.h"
 #include "nau/asset_tools/compilers/animation_compilers.h"
 
 #include <nau/shared/logger.h>
@@ -452,7 +453,7 @@ namespace nau::compilers
             bool clearTempDir,
             SkeletalAnimationAssetData& nanimData)
         {
-            const std::string relativeSourcePath = FileSystemExtensions::getRelativeAssetPath(assetPath, true).string();
+            const std::string relativeSourcePath = pathToUtf8(FileSystemExtensions::getRelativeAssetPath(pathFromUtf8(assetPath), true));
             const std::string skeletonSourcePath = std::format("{}+[skeleton]", relativeSourcePath.c_str());
 
             AssetDatabaseManager& dbManager = AssetDatabaseManager::instance();
@@ -690,7 +691,7 @@ namespace nau::compilers
         if (auto usdAnimation = loadUsdAnimation(primToCompile, outputPath, metaInfo))
         {
             AssetMetaInfo nanimMeta;
-            const std::string relativeSourcePath = FileSystemExtensions::getRelativeAssetPath(metaInfo.assetPath, false).string();
+            const std::string relativeSourcePath = pathToUtf8(FileSystemExtensions::getRelativeAssetPath(pathFromUtf8(metaInfo.assetPath), false));
             const std::string sourcePath = std::format("{}+[kfanimation]", relativeSourcePath.c_str(), primToCompile.GetName().GetString());
             
             auto id = dbManager.findIf(sourcePath); 

@@ -67,7 +67,9 @@ private:
             return {};
         };
 
-        auto defaultConfigResult = nau::app_utils::parseAppConfigs(projectRootDir.string());
+        const auto projectRootUtf8 = projectRootDir.u8string();
+        auto defaultConfigResult = nau::app_utils::parseAppConfigs(
+            std::string(reinterpret_cast<const char*>(projectRootUtf8.data()), projectRootUtf8.size()));
         NAU_FATAL(defaultConfigResult.isSuccess());
         // The legacy route keeps its startup scene when portable configs coexist.
         auto sceneConfigResult = nau::mergePropertiesFromFile(
@@ -101,21 +103,22 @@ private:
         auto result = globalProperties.getValue<std::u8string>("projectDir");
         NAU_ASSERT(result.has_value(), "Fail to get project dir value.");
 
-        const std::filesystem::path& projectRootDir =
-            std::string(reinterpret_cast<const char*>(result.value().data()), result.value().length());
+        const std::filesystem::path projectRootDir(result.value());
 
         auto physWorld = getServiceProvider().get<physics::ICorePhysics>().getDefaultPhysicsWorld();
         physWorld->resetChannelsCollisionSettings();
         std::ifstream ifs;
         const auto channelsFileName = projectRootDir / std::filesystem::path("resources/physics/channels.data");
+        const auto channelsUtf8 = channelsFileName.u8string();
+        const std::string channelsPath(reinterpret_cast<const char*>(channelsUtf8.data()), channelsUtf8.size());
         ifs.open(channelsFileName);
         if (!ifs)
         {
-            NAU_LOG_ERROR("Can't load physics channel collisions from {}", channelsFileName.string());
+            NAU_LOG_ERROR("Can't load physics channel collisions from {}", channelsPath);
             return;
         }
 
-        NAU_LOG_DEBUG("Loading physics channels from {}", channelsFileName.string().c_str());
+        NAU_LOG_DEBUG("Loading physics channels from {}", channelsPath);
         Json::Value root;
         ifs >> root;
 

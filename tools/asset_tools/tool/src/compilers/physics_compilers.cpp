@@ -1,6 +1,7 @@
 // Copyright 2024 N-GINN LLC. All rights reserved.
 // Use of this source code is governed by a BSD-3 Clause license that can be found in the LICENSE file.
 
+#include "nau/shared/utf8_path.h"
 #include "nau/asset_tools/compilers/physics_compilers.h"
 
 #include <nau/shared/logger.h>
@@ -60,7 +61,7 @@ namespace nau::compilers
         }
 
         AssetMetaInfo nphysMeta;
-        const std::string relativeSourcePath = FileSystemExtensions::getRelativeAssetPath(metaInfo.assetPath, false).string();
+        const std::string relativeSourcePath = pathToUtf8(FileSystemExtensions::getRelativeAssetPath(pathFromUtf8(metaInfo.assetPath), false));
         const std::string sourcePath = std::format("{}", relativeSourcePath.c_str());
 
         auto id = dbManager.findIf(sourcePath);

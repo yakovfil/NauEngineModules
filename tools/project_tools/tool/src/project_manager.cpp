@@ -31,6 +31,11 @@
 
 namespace nau
 {
+    static std::string utf8Path(const std::filesystem::path& path)
+    {
+        const auto value = path.u8string();
+        return {reinterpret_cast<const char*>(value.data()), value.size()};
+    }
     constexpr static char g_pattern[] = "%%\\((.*?)\\)%%";
     constexpr static int g_intent = 4;
 
@@ -271,8 +276,8 @@ namespace nau
     int NauInitProjectJob::run(const CommonArguments* const params)
     {
         const InitProjectArguments* args = static_cast<const InitProjectArguments*>(params);
-        const std::filesystem::path pathToTemplate = std::filesystem::path(args->toolsPath) / "project_templates" / args->templateName;
-        const std::filesystem::path projectPath = std::filesystem::path(args->projectPath) / args->projectName;
+        const std::filesystem::path pathToTemplate = std::filesystem::u8path(args->toolsPath) / "project_templates" / args->templateName;
+        const std::filesystem::path projectPath = std::filesystem::u8path(args->projectPath) / args->projectName;
 
         FileSystem fs;
         const std::string preset = args->cMakePreset.empty()
@@ -290,7 +295,7 @@ namespace nau
         }
 
         // Init default assets folder for project
-        std::string assetsPath = (projectPath / "assets").string();
+        std::string assetsPath = utf8Path(projectPath / "assets");
         std::replace(assetsPath.begin(), assetsPath.end(), '\\', '/');
 
         // This is used in StringProcessor to replace regex matches
@@ -314,9 +319,9 @@ namespace nau
 
         StringProcessor processor;
 
-        std::filesystem::path finalPath = std::filesystem::path(args->projectPath) / args->projectName;
+        std::filesystem::path finalPath = std::filesystem::u8path(args->projectPath) / args->projectName;
 
-        LOG_INFO("Creating project at path {}", finalPath.string());
+        LOG_INFO("Creating project at path {}", utf8Path(finalPath));
 
         std::error_code error;
 
@@ -346,7 +351,7 @@ namespace nau
                 finalName = fileInfo.name;
             }
 
-            LOG_INFO("Saving file {} at path {}", finalName, to.string());
+            LOG_INFO("Saving file {} at path {}", finalName, utf8Path(to));
 
             std::filesystem::path savePath = to / finalName;
 
@@ -373,19 +378,19 @@ namespace nau
                 }
                 catch (const std::exception& e)
                 {
-                    return result(std::format("Could not process regex in file {}\n{}", savePath.string(), e.what()), ErrorCode::internalError);
+                    return result(std::format("Could not process regex in file {}\n{}", utf8Path(savePath), e.what()), ErrorCode::internalError);
                 }
 
                 if (counter != 0)
                 {
-                    return result(std::format("Could not process regex in file {}", savePath.string()), ErrorCode::internalError);
+                    return result(std::format("Could not process regex in file {}", utf8Path(savePath)), ErrorCode::internalError);
                 }
 
-                LOG_INFO("Processed file {}", savePath.string());
+                LOG_INFO("Processed file {}", utf8Path(savePath));
 
                 fs.writeFile(savePath, processedContent);
 
-                LOG_INFO("Saved file {}", savePath.string());
+                LOG_INFO("Saved file {}", utf8Path(savePath));
             }
         }
 
@@ -483,7 +488,7 @@ namespace nau
         nlohmann::json newjson, config;
         std::stringstream ss;
 
-        const std::filesystem::path projectPath = std::filesystem::path(args->projectPath);
+        const std::filesystem::path projectPath = std::filesystem::u8path(args->projectPath);
         const std::string projectConfig = args->projectName + FileSystemExtensions::g_configExtension;
         const std::filesystem::path configPath = projectPath / projectConfig;
 

@@ -5,6 +5,10 @@
 #include <filesystem>
 #include <iostream>
 #include <string>
+#include <vector>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 #include "argparse/argparse.hpp"
 #include "nau/asset_tools/asset_api.h"
@@ -55,7 +59,7 @@ namespace nau
             return ErrorCode::invalidArgumentsError;
         }
 
-        const std::string logPath = programArgs.is_used("--log") ? programArgs.get<std::string>("--log") : std::filesystem::current_path().string();
+        const std::string logPath = programArgs.is_used("--log") ? programArgs.get<std::string>("--log") : nau::pathToUtf8(std::filesystem::current_path());
         const bool verbose = programArgs.is_used("--verbose");
         logger::init(logPath, verbose);
 
@@ -94,7 +98,30 @@ namespace nau
     }
 }  // namespace nau
 
+#ifdef _WIN32
+int wmain(int argc, wchar_t** wide)
+{
+    std::vector<std::string> values;
+    std::vector<char*> arguments;
+    values.reserve(argc);
+    for (int i = 0; i < argc; ++i)
+    {
+        const int size = WideCharToMultiByte(CP_UTF8, 0, wide[i], -1, nullptr, 0, nullptr, nullptr);
+        if (size <= 0)
+            return nau::ErrorCode::invalidArgumentsError;
+        std::string value(size, '\0');
+        WideCharToMultiByte(CP_UTF8, 0, wide[i], -1, value.data(), size, nullptr, nullptr);
+        value.pop_back();
+        values.push_back(std::move(value));
+    }
+    for (auto& value : values)
+        arguments.push_back(value.data());
+    arguments.push_back(nullptr);
+    return nau::parse(argc, arguments.data());
+}
+#else
 int main(int argc, char** argv)
 {
     return nau::parse(argc, argv);
 }
+#endif

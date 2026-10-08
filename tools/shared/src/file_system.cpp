@@ -177,7 +177,7 @@ namespace nau
                 {
                     std::filesystem::remove(entry.path());
 
-                    LOG_INFO("Removed file: {}", entry.path().string());
+                    LOG_INFO("Removed file: {}", pathToUtf8(entry.path()));
                 }
             }
         }
@@ -192,13 +192,13 @@ namespace nau
     {
         for (const auto& entry : std::filesystem::directory_iterator(path))
         {
-            std::string extension = entry.path().extension().string();
+            std::string extension = pathToUtf8(entry.path().extension());
 
             if (!std::filesystem::is_directory(entry.path()))
             {
                 if (excludedExtension != extension && entry.path().filename().stem() == fileName)
                 {
-                    std::string fileName = entry.path().string();
+                    std::string fileName = pathToUtf8(entry.path());
 
                     std::replace(fileName.begin(), fileName.end(), '\\', '/');
 
@@ -207,9 +207,9 @@ namespace nau
                     std::string nameWithoutExtension = fileName.substr(0, fileName.length() - extension.length());
                     std::replace(nameWithoutExtension.begin(), nameWithoutExtension.end(), '\\', '/');
 
-                    info.path = fileName.substr(0, fileName.length() - entry.path().extension().string().length());
-                    info.subpath = FileSystemExtensions::getSubPath(path.string(), entry.path().string(), true);
-                    info.extension = entry.path().extension().string();
+                    info.path = fileName.substr(0, fileName.length() - pathToUtf8(entry.path().extension()).length());
+                    info.subpath = FileSystemExtensions::getSubPath(pathToUtf8(path), pathToUtf8(entry.path()), true);
+                    info.extension = pathToUtf8(entry.path().extension());
                     info.size = std::filesystem::file_size(entry.path());
                     info.name = FileSystemExtensions::nameFromPath(nameWithoutExtension);
                     info.lastModified = std::filesystem::last_write_time(entry.path()).time_since_epoch().count();
@@ -226,7 +226,7 @@ namespace nau
         {
             if (!std::filesystem::is_directory(entry.path()))
             {
-                out.push_back(entry.path().string());
+                out.push_back(pathToUtf8(entry.path()));
             }
         }
 
@@ -240,7 +240,7 @@ namespace nau
 
         for (const auto& entry : std::filesystem::recursive_directory_iterator(path))
         {
-            std::string extension = entry.path().extension().string();
+            std::string extension = pathToUtf8(entry.path().extension());
 
             if (!std::filesystem::is_directory(entry.path()))
             {
@@ -248,7 +248,7 @@ namespace nau
                 {
                     if (!checkExcludedExtensions || std::find(options.excludedExtensions.begin(), options.excludedExtensions.end(), extension) == options.excludedExtensions.end())
                     {
-                        std::string fileName = entry.path().string();
+                        std::string fileName = pathToUtf8(entry.path());
 
                         std::replace(fileName.begin(), fileName.end(), '\\', '/');
 
@@ -257,9 +257,9 @@ namespace nau
                         std::string nameWithoutExtension = fileName.substr(0, fileName.length() - extension.length());
                         std::replace(nameWithoutExtension.begin(), nameWithoutExtension.end(), '\\', '/');
 
-                        info.path = fileName.substr(0, fileName.length() - entry.path().extension().string().length());
-                        info.subpath = FileSystemExtensions::getSubPath(path.string(), entry.path().string(), true);
-                        info.extension = entry.path().extension().string();
+                        info.path = fileName.substr(0, fileName.length() - pathToUtf8(entry.path().extension()).length());
+                        info.subpath = FileSystemExtensions::getSubPath(pathToUtf8(path), pathToUtf8(entry.path()), true);
+                        info.extension = pathToUtf8(entry.path().extension());
                         info.size = std::filesystem::file_size(entry.path());
                         info.name = FileSystemExtensions::nameFromPath(nameWithoutExtension);
                         info.lastModified = std::filesystem::last_write_time(entry.path()).time_since_epoch().count();
@@ -275,8 +275,8 @@ namespace nau
 
     FileInfo FileSystem::getFileInfo(const std::filesystem::path& path)
     {
-        std::string fileName = path.string();
-        std::string extension = path.extension().string();
+        std::string fileName = pathToUtf8(path);
+        std::string extension = pathToUtf8(path.extension());
 
         std::replace(fileName.begin(), fileName.end(), '\\', '/');
 
@@ -285,9 +285,9 @@ namespace nau
         std::string nameWithoutExtension = fileName.substr(0, fileName.length() - extension.length());
         std::replace(nameWithoutExtension.begin(), nameWithoutExtension.end(), '\\', '/');
 
-        info.path = fileName.substr(0, fileName.length() - path.extension().string().length());
-        info.subpath = FileSystemExtensions::getSubPath(path.string(), path.string(), true);
-        info.extension = path.extension().string();
+        info.path = fileName.substr(0, fileName.length() - pathToUtf8(path.extension()).length());
+        info.subpath = FileSystemExtensions::getSubPath(pathToUtf8(path), pathToUtf8(path), true);
+        info.extension = pathToUtf8(path.extension());
         info.size = std::filesystem::file_size(path);
         info.name = FileSystemExtensions::nameFromPath(nameWithoutExtension);
         info.lastModified = std::filesystem::last_write_time(path).time_since_epoch().count();
@@ -301,7 +301,7 @@ namespace nau
         {
             if (entry.path().extension() == extension)
             {
-                return entry.path().string();
+                return pathToUtf8(entry.path());
             }
         }
         return "";
@@ -321,7 +321,7 @@ namespace nau
         {
             if (entry.path().stem().filename() == fileName)
             {
-                ext = entry.path().extension().string();
+                ext = pathToUtf8(entry.path().extension());
                 break;
             }
         }
@@ -352,33 +352,33 @@ namespace nau
     std::string FileSystemExtensions::findDirectoryInUpperRecursive(const std::string& basePath, const std::string& directoryName)
     {
         std::string path = basePath;
-        while (path != std::filesystem::path(path).parent_path().string())
+        while (path != pathToUtf8(std::filesystem::u8path(path).parent_path()))
         {
             if (std::filesystem::exists(path + "/" + directoryName))
             {
                 return path;
             }
             if (directoryName == "project_templates" &&
-                std::filesystem::exists(std::filesystem::path(path) / "NauEngineModules" / directoryName))
+                std::filesystem::exists(std::filesystem::u8path(path) / "NauEngineModules" / directoryName))
             {
-                return (std::filesystem::path(path) / "NauEngineModules").string();
+                return (std::filesystem::u8path(path) / "NauEngineModules").string();
             }
-            path = std::filesystem::path(path).parent_path().string();
+            path = pathToUtf8(std::filesystem::u8path(path).parent_path());
         }
         return "";
     }
 
     std::filesystem::path nau::FileSystemExtensions::getAssetsDirectory(const std::filesystem::path& currPath)
     {
-        const bool pathContainsAssets = currPath.string().find(getAssetsSubfolderDefaultName()) != std::string::npos;
+        const bool pathContainsAssets = pathToUtf8(currPath).find(getAssetsSubfolderDefaultName()) != std::string::npos;
         LOG_FASSERT(!pathContainsAssets, "Current path does not contain assets directory");
-        const std::filesystem::path assetsDirectory = currPath.string().substr(0, currPath.string().find(getAssetsSubfolderDefaultName()));
+        const std::filesystem::path assetsDirectory = std::filesystem::u8path(pathToUtf8(currPath).substr(0, pathToUtf8(currPath).find(getAssetsSubfolderDefaultName())));
         return assetsDirectory;
     }
 
     bool nau::FileSystemExtensions::isGeometryAsset(const std::filesystem::path& path)
     {
-        std::string extension = path.extension().string();
+        std::string extension = pathToUtf8(path.extension());
         static std::vector<std::string> geomExtensions = {".obj", ".fbx", ".gltf", ".glb", ".dae", ".usda", ".usdc", ".usd"};
 
         return std::find(geomExtensions.begin(), geomExtensions.end(), extension) != geomExtensions.end();
@@ -390,7 +390,7 @@ namespace nau
         std::string assetsPath = paths.getAssetsPath();
         LOG_FASSERT(assetsPath.empty(), "Assets path is empty!");
 
-        std::string path = currPath.string();
+        std::string path = pathToUtf8(currPath);
 
         // replace \ with // to make uniform path
         std::replace(path.begin(), path.end(), '\\', '/');
@@ -398,27 +398,27 @@ namespace nau
 
         if (stripExtension)
         {
-            path = path.substr(0, path.length() - currPath.extension().string().length());
+            path = path.substr(0, path.length() - pathToUtf8(currPath.extension()).length());
         }
 
-        return std::filesystem::path(path.substr(assetsPath.length() + 1));
+        return std::filesystem::u8path(path.substr(assetsPath.length() + 1));
     }
 
     std::string FileSystemExtensions::resolveToNativePathContentFolder(const std::string& relativePath)
     {
         auto& vfs = nau::getServiceProvider().get<nau::io::IVirtualFileSystem>();
         auto fs_path = vfs.resolveToNativePath("/content/" + relativePath);
-        return std::filesystem::path(fs_path).string();
+        return pathToUtf8(fs_path);
     }
 
     std::string FileSystemExtensions::replaceExtension(const std::string& path, const std::string& newExtension)
     {
-        return std::filesystem::path(path).replace_extension(newExtension).string();
+        return pathToUtf8(std::filesystem::u8path(path).replace_extension(newExtension));
     }
 
     std::string Paths::getExecutablePath() const
     {
-        return std::filesystem::current_path().string();
+        return pathToUtf8(std::filesystem::current_path());
     }
 
     std::string Paths::getAssetsPath() const
@@ -459,17 +459,17 @@ namespace nau
         auto sourceModulesEnvDir = std::getenv("NAU_MODULES_SOURCE_DIR");
         auto sdkEngineEnvDir = std::getenv("NAU_ENGINE_SDK_DIR");
 
-        ss << "\"" << (shadersIn / "include").string() << "\"";
+        ss << "\"" << pathToUtf8((shadersIn / "include")) << "\"";
 
         std::filesystem::path modulesSourceDir;
         if (sourceModulesEnvDir)
         {
-            modulesSourceDir = sourceModulesEnvDir;
+            modulesSourceDir = pathFromUtf8(sourceModulesEnvDir);
         }
         else if (const auto checkoutRoot = FileSystemExtensions::findDirectoryInUpperRecursive(
-                     std::filesystem::current_path().string(), "NauEngineModules"); !checkoutRoot.empty())
+                     pathToUtf8(std::filesystem::current_path()), "NauEngineModules"); !checkoutRoot.empty())
         {
-            modulesSourceDir = std::filesystem::path(checkoutRoot) / "NauEngineModules";
+            modulesSourceDir = pathFromUtf8(checkoutRoot) / "NauEngineModules";
         }
 
         if (!modulesSourceDir.empty())
@@ -478,17 +478,17 @@ namespace nau
 
             if (std::filesystem::is_directory(shadersIncludeDir))
             {
-                ss << " \"" << shadersIncludeDir.string() << "\"";
+                ss << " \"" << pathToUtf8(shadersIncludeDir) << "\"";
             }
         }
 
         if (sdkEngineEnvDir)
         {
-            const std::filesystem::path shadersIncludeDir = std::filesystem::path(sdkEngineEnvDir) / "include/core/modules/render/include/nau/shaders";
+            const std::filesystem::path shadersIncludeDir = pathFromUtf8(sdkEngineEnvDir) / "include/core/modules/render/include/nau/shaders";
 
             if (std::filesystem::is_directory(shadersIncludeDir))
             {
-                ss << " \"" << shadersIncludeDir.string() << "\"";
+                ss << " \"" << pathToUtf8(shadersIncludeDir) << "\"";
             }
         }
 
