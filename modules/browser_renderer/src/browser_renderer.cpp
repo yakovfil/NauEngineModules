@@ -35,6 +35,13 @@ namespace nau
             GLsizei count = 0;
         };
         std::map<std::string, MeshResource> meshes;
+        GLuint billboardProgram = 0, billboardVao = 0;
+        struct BillboardTexture
+        {
+            nau::Ptr<CpuTextureView> owner;
+            GLuint texture = 0;
+        };
+        std::map<const CpuTextureView*, BillboardTexture> billboardTextures;
         Error::Ptr failure;
         GLuint textProgram = 0, textVao = 0, textBuffer = 0;
         float textScale = 1;
@@ -63,9 +70,56 @@ namespace nau
         return initializeProgram(&mesh, vertex, fragment);
     }
 
-    Result<> BrowserRenderer::initializeBatch(std::string_view vertex, std::string_view fragment)
+    Result<> BrowserRenderer::initializeBatch(std::string_view vertex, std::string_view fragment, std::string_view billboardVertex, std::string_view billboardFragment)
     {
-        return initializeProgram(nullptr, vertex, fragment);
+        NauCheckResult(initializeProgram(nullptr, vertex, fragment));
+        if (billboardVertex.empty() && billboardFragment.empty())
+            return {};
+        auto& state = *m_state;
+        const auto compile = [](GLenum type, std::string_view source) -> Result<GLuint>
+        {
+            GLuint shader = glCreateShader(type);
+            const char* data = source.data();
+            const GLint length = source.size();
+            glShaderSource(shader, 1, &data, &length);
+            glCompileShader(shader);
+            GLint okay = 0;
+            glGetShaderiv(shader, GL_COMPILE_STATUS, &okay);
+            if (!okay)
+            {
+                char message[2048]{};
+                glGetShaderInfoLog(shader, sizeof(message), nullptr, message);
+                glDeleteShader(shader);
+                return NauMakeError("Browser billboard shader failed: {}", message);
+            }
+            return shader;
+        };
+        auto vs = compile(GL_VERTEX_SHADER, billboardVertex);
+        if (!vs)
+            return vs.getError();
+        auto fs = compile(GL_FRAGMENT_SHADER, billboardFragment);
+        if (!fs)
+        {
+            glDeleteShader(*vs);
+            return fs.getError();
+        }
+        state.billboardProgram = glCreateProgram();
+        glAttachShader(state.billboardProgram, *vs);
+        glAttachShader(state.billboardProgram, *fs);
+        glLinkProgram(state.billboardProgram);
+        glDeleteShader(*vs);
+        glDeleteShader(*fs);
+        GLint okay = 0;
+        glGetProgramiv(state.billboardProgram, GL_LINK_STATUS, &okay);
+        if (!okay)
+            return NauMakeError("Browser billboard shader link failed");
+        glGenVertexArrays(1, &state.billboardVao);
+        for (const char* name : {"center", "extent", "marker"})
+            if (glGetUniformLocation(state.billboardProgram, name) < 0)
+                return NauMakeError("Browser billboard uniform missing: {}", name);
+        if (glGetError() != GL_NO_ERROR)
+            return NauMakeError("Browser billboard initialization failed");
+        return {};
     }
 
     Result<> BrowserRenderer::initializeProgram(const CpuMeshView* mesh, std::string_view vertex, std::string_view fragment)
@@ -316,6 +370,54 @@ void main() { color=vec4(tint.rgb,tint.a*texture(coverage,texcoord).r); }
             glBindVertexArray(found->second.vao);
             glDrawElements(GL_TRIANGLES, found->second.count, GL_UNSIGNED_SHORT, nullptr);
         }
+        std::set<const CpuTextureView*> liveTextures;
+        if (!frame.billboards.empty() && !state.billboardProgram)
+            return state.failure = NauMakeError("Browser billboard program unavailable");
+        glUseProgram(state.billboardProgram);
+        glBindVertexArray(state.billboardVao);
+        glActiveTexture(GL_TEXTURE0);
+        for (const auto& draw : frame.billboards)
+        {
+            auto center = render::billboardCenter(frame.viewProjection, draw);
+            if (!center)
+                return state.failure = center.getError();
+            if (!draw.image || draw.image->pixels.size() != uint64_t(draw.image->width) * draw.image->height * 4)
+                return state.failure = NauMakeError("Invalid browser billboard texture {}", draw.texture);
+            liveTextures.insert(draw.image.get());
+            if (!render::billboardInDepth(*center))
+                continue;
+            auto found = state.billboardTextures.find(draw.image.get());
+            if (found == state.billboardTextures.end())
+            {
+                auto& resource = state.billboardTextures[draw.image.get()];
+                resource.owner = draw.image;
+                glGenTextures(1, &resource.texture);
+                glBindTexture(GL_TEXTURE_2D, resource.texture);
+                glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, draw.image->width, draw.image->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, draw.image->pixels.data());
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+                if (glGetError() != GL_NO_ERROR)
+                    return state.failure = NauMakeError("Browser billboard upload failed: {}", draw.texture);
+                found = state.billboardTextures.find(draw.image.get());
+            }
+            glBindTexture(GL_TEXTURE_2D, found->second.texture);
+            glUniform1i(glGetUniformLocation(state.billboardProgram, "marker"), 0);
+            glUniform4fv(glGetUniformLocation(state.billboardProgram, "center"), 1, center->data());
+            glUniform2f(glGetUniformLocation(state.billboardProgram, "extent"), draw.size, draw.size * float(state.width) / state.height);
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        }
+        glBindTexture(GL_TEXTURE_2D, 0);
+        for (auto it = state.billboardTextures.begin(); it != state.billboardTextures.end();)
+            if (!liveTextures.contains(it->first))
+            {
+                glDeleteTextures(1, &it->second.texture);
+                it = state.billboardTextures.erase(it);
+            }
+            else
+                ++it;
         if (glGetError() != GL_NO_ERROR || emscripten_webgl_commit_frame() != EMSCRIPTEN_RESULT_SUCCESS)
             return state.failure = NauMakeError("Browser scene frame submission failed");
         ++state.frames;
@@ -487,6 +589,11 @@ void main() { color=vec4(tint.rgb,tint.a*texture(coverage,texcoord).r); }
                     glDeleteBuffers(3, resource.buffers);
                     glDeleteVertexArrays(1, &resource.vao);
                 }
+                for (auto& [key, resource] : state.billboardTextures)
+                    glDeleteTextures(1, &resource.texture);
+                if (state.billboardProgram)
+                    glDeleteProgram(state.billboardProgram);
+                glDeleteVertexArrays(1, &state.billboardVao);
                 glDeleteBuffers(3, state.buffers);
                 glDeleteVertexArrays(1, &state.vao);
                 if (state.program)
@@ -505,8 +612,10 @@ void main() { color=vec4(tint.rgb,tint.a*texture(coverage,texcoord).r); }
                 return NauMakeError("Browser context destruction failed");
         }
         const auto releasedTextures = state.textTextures.size();
+        NAU_LOG_INFO("Browser billboards releasing {} textures", state.billboardTextures.size());
         state.textTextures.clear();
         state.meshes.clear();
+        state.billboardTextures.clear();
         MAIN_THREAD_EM_ASM({if(Module.nauRender) Module.nauRender.stopped = true; });
         MAIN_THREAD_EM_ASM({ Module.nauText = ({labels: 0, textures: 0, released: $0, stopped: true}); }, releasedTextures);
         return {};

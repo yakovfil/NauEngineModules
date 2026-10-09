@@ -13,7 +13,7 @@ namespace nau::render
         public:
             Result<> initialize(void*) override
             {
-                return m_renderer.initializeBatch(shaders::VertexSource, shaders::FragmentSource);
+                return m_renderer.initializeBatch(shaders::VertexSource, shaders::FragmentSource, shaders::BillboardVertex, shaders::BillboardFragment);
             }
             Result<SceneDrawable> poll() override
             {

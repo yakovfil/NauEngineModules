@@ -1,12 +1,15 @@
 // Copyright 2026 N-GINN LLC. All rights reserved.
 // Use of this source code is governed by a BSD-3 Clause license that can be found in the LICENSE file.
 #include <algorithm>
+#include <cstring>
 #include <map>
 #include <set>
 
 #include "nau/3d/dag_drv3d.h"
 #include "nau/3d/dag_renderStates.h"
 #include "nau/dataBlock/dag_dataBlock.h"
+#include "nau/image/dag_texPixel.h"
+#include "nau/memory/heap_byte_allocator.h"
 #include "nau/osApiWrappers/dag_cpuJobs.h"
 #include "nau/platform/windows/windows_headers.h"
 #include "nau/render/scene_backend.h"
@@ -104,6 +107,26 @@ namespace nau::render
                 settings.zFunc = CMPF_LESS;
                 settings.cull = CULL_NONE;
                 m_renderState = d3d::create_render_state(settings);
+                VSDTYPE billboardLayout[] = {VSD_STREAM_PER_VERTEX_DATA(0), VSD_REG(VSDR_POS, VSDT_FLOAT4), VSD_REG(VSDR_TEXC0, VSDT_FLOAT2), VSD_END};
+                m_billboardDeclaration = d3d::create_vdecl(billboardLayout);
+                dxil::ShaderResourceUsageTable billboardUsage;
+                auto billboardVs = d3d::create_raw_vertex_shader(std::span{shaders::NativeBillboardVertex}, billboardUsage, m_billboardDeclaration);
+                billboardUsage.tRegisterUseMask = billboardUsage.sRegisterUseMask = 1;
+                auto billboardPs = d3d::create_raw_pixel_shader(std::span{shaders::NativeBillboardFragment}, billboardUsage);
+                if (billboardVs != BAD_VPROG && billboardPs != BAD_FSHADER && m_billboardDeclaration != BAD_VDECL)
+                    m_billboardProgram = d3d::create_program(billboardVs, billboardPs, m_billboardDeclaration);
+                if (m_billboardProgram == BAD_PROGRAM)
+                {
+                    if (billboardVs != BAD_VPROG)
+                        d3d::delete_vertex_shader(billboardVs);
+                    if (billboardPs != BAD_FSHADER)
+                        d3d::delete_pixel_shader(billboardPs);
+                    return NauMakeError("Native billboard shader creation failed");
+                }
+                d3d::SamplerInfo sampler;
+                sampler.filter_min_mode = sampler.filter_mag_mode = d3d::FilterMode::Linear;
+                sampler.address_mode_u = sampler.address_mode_v = d3d::AddressMode::Clamp;
+                m_sampler = d3d::create_sampler(sampler);
                 return {};
             }
             Result<SceneDrawable> poll() override
@@ -209,6 +232,63 @@ namespace nau::render
                         !d3d::drawind(PRIM_TRILIST, 0, found->second.count / 3, 0))
                         return NauMakeError("Native scene draw failed: {}", draw.geometry);
                 }
+                std::set<const CpuTextureView*> liveTextures;
+                for (const auto& draw : frame.billboards)
+                {
+                    auto center = billboardCenter(frame.viewProjection, draw);
+                    if (!center)
+                        return center.getError();
+                    if (!draw.image || draw.image->pixels.size() != uint64_t(draw.image->width) * draw.image->height * 4)
+                        return NauMakeError("Invalid native billboard texture {}", draw.texture);
+                    liveTextures.insert(draw.image.get());
+                    if (!billboardInDepth(*center))
+                        continue;
+                    auto found = m_textures.find(draw.image.get());
+                    if (found == m_textures.end())
+                    {
+                        Texture resource;
+                        resource.owner = draw.image;
+                        HeapByteAllocator allocator;
+                        auto* staging = TexImage32::create(draw.image->width, draw.image->height, &allocator);
+                        if (!staging)
+                            return NauMakeError("Native billboard staging allocation failed: {}", draw.texture);
+                        std::memcpy(staging->getPixels(), draw.image->pixels.data(), draw.image->pixels.size());
+                        resource.texture = d3d::create_tex(staging, draw.image->width, draw.image->height, TEXFMT_R8G8B8A8 | TEXCF_SRGBREAD, 1, u8"portable_billboard");
+                        memfree(staging, &allocator);
+                        if (!resource.texture)
+                            return NauMakeError("Native billboard texture upload failed: {}", draw.texture);
+                        found = m_textures.emplace(draw.image.get(), resource).first;
+                    }
+                    struct Vertex
+                    {
+                        float x, y, z, w, u, v;
+                    };
+                    Vertex vertices[4];
+                    const auto& clip = *center;
+                    for (unsigned i = 0; i < 4; ++i)
+                    {
+                        const float u = float(i & 1), v = float((i & 2) >> 1);
+                        vertices[i] = {clip[0] + (u * 2 - 1) * draw.size * clip[3], clip[1] + (1 - v * 2) * draw.size * float(drawable->width) / drawable->height * clip[3], .5f * (clip[2] + clip[3]), clip[3], u, v};
+                    }
+                    d3d::set_sampler(STAGE_PS, 0, m_sampler);
+                    if (!d3d::set_program(m_billboardProgram) || !d3d::settex(0, found->second.texture) || !d3d::setvdecl(m_billboardDeclaration) || !d3d::draw_up(PRIM_TRISTRIP, 2, vertices, sizeof(Vertex)))
+                        return NauMakeError("Native billboard draw failed: {}", draw.component);
+                }
+                if (std::any_of(m_textures.begin(), m_textures.end(), [&](const auto& item)
+                {
+                    return !liveTextures.contains(item.first);
+                }))
+                {
+                    d3d::finish_render_commands();
+                    for (auto it = m_textures.begin(); it != m_textures.end();)
+                        if (!liveTextures.contains(it->first))
+                        {
+                            it->second.texture->destroy();
+                            it = m_textures.erase(it);
+                        }
+                        else
+                            ++it;
+                }
                 if (!d3d::update_screen())
                     return NauMakeError("Native scene presentation failed");
                 return {};
@@ -223,6 +303,16 @@ namespace nau::render
                 for (auto& [identity, mesh] : m_meshes)
                     mesh.release();
                 m_meshes.clear();
+                if (m_video)
+                    d3d::settex(0, nullptr);
+                NAU_LOG_INFO("Native billboards releasing {} textures", m_textures.size());
+                for (auto& [identity, texture] : m_textures)
+                    texture.texture->destroy();
+                m_textures.clear();
+                if (m_billboardProgram != BAD_PROGRAM)
+                    d3d::delete_program(m_billboardProgram), m_billboardProgram = BAD_PROGRAM;
+                if (m_billboardDeclaration != BAD_VDECL)
+                    d3d::delete_vdecl(m_billboardDeclaration), m_billboardDeclaration = BAD_VDECL;
                 if (m_depth)
                     m_depth->destroy(), m_depth = nullptr;
                 if (m_program != BAD_PROGRAM)
@@ -257,6 +347,15 @@ namespace nau::render
                         indices->destroy(), indices = nullptr;
                 }
             };
+            struct Texture
+            {
+                nau::Ptr<CpuTextureView> owner;
+                BaseTexture* texture = nullptr;
+            };
+            std::map<const CpuTextureView*, Texture> m_textures;
+            PROGRAM m_billboardProgram = BAD_PROGRAM;
+            VDECL m_billboardDeclaration = BAD_VDECL;
+            d3d::SamplerHandle m_sampler;
             HWND m_window = nullptr;
             bool m_driver = false, m_video = false, m_stopped = false, m_lost = false;
             bool m_ownedJobs = false;

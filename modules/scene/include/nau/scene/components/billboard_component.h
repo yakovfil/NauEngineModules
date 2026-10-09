@@ -1,7 +1,6 @@
 // Copyright 2024 N-GINN LLC. All rights reserved.
 // Use of this source code is governed by a BSD-3 Clause license that can be found in the LICENSE file.
 
-
 #pragma once
 
 #include "nau/assets/asset_ref.h"
@@ -17,8 +16,7 @@ namespace nau::scene
         NAU_CLASS_FIELDS(
             CLASS_NAMED_FIELD(m_texture, "texture"),
             CLASS_NAMED_FIELD(m_isVisible, "visibility"),
-            CLASS_NAMED_FIELD(m_screenPercentageSize, "screenPercentageSize"),
-        )
+            CLASS_NAMED_FIELD(m_screenPercentageSize, "screenPercentageSize"), )
 
     public:
         void setTextureRef(nau::TextureAssetRef assetRef);
@@ -35,8 +33,8 @@ namespace nau::scene
 
     private:
         mutable nau::TextureAssetRef m_texture;
-        mutable float m_screenPercentageSize;
+        mutable float m_screenPercentageSize = 0.1f;
         mutable bool m_isVisible = true;
-        bool isBillboardTextureDirty;
+        bool isBillboardTextureDirty = false;
     };
-}  // namespace nau
+}  // namespace nau::scene

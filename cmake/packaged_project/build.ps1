@@ -103,6 +103,10 @@ if (-not $PSBoundParameters.ContainsKey('PythonExecutable')) {
     if ($LASTEXITCODE -ne 0) { throw 'Provide PythonExecutable matching the native USD SDK.' }
 }
 $PythonExecutable = (Resolve-Path -LiteralPath $PythonExecutable).Path
+if ($policy.profile -eq 'basic-rendering-scene' -and $policy.supportedComponents -contains 'nau::scene::BillboardComponent') {
+    & $PythonExecutable (Join-Path $modulesDirectory 'tools/asset_tools/portable_texture.py')
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
 $pythonDirectory = Split-Path $PythonExecutable
 $env:PATH = "$HostTools;$HostTools/plugins;$pythonDirectory;$UsdSdk/bin;$UsdSdk/lib;$env:PATH"
 $env:PYTHONPATH = "$UsdSdk/lib/python"

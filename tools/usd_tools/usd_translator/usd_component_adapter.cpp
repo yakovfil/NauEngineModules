@@ -1,13 +1,15 @@
 // Copyright 2024 N-GINN LLC. All rights reserved.
 // Use of this source code is governed by a BSD-3 Clause license that can be found in the LICENSE file.
 
-
 #include "usd_component_adapter.h"
 
+#include <pxr/usd/usd/primRange.h>
+#include <pxr/usd/usd/stage.h>
 #include <pxr/usd/usdGeom/primvarsAPI.h>
 #include <pxr/usd/usdGeom/xformCache.h>
 
 #include "nau/diag/logging.h"
+#include "nau/scene/components/billboard_component.h"
 #include "nau/scene/components/internal/missing_component.h"
 #include "nau/scene/components/scene_component.h"
 #include "nau/usd_wrapper/usd_attribute_wrapper.h"
@@ -86,6 +88,27 @@ namespace UsdTranslator
         }
 
         auto componentAsRuntimeObject = m_component->as<nau::DynamicObject*>();
+        // Billboard textures are authored as USD metadata references. The
+        // generic string assignment cannot turn an SdfAssetPath into AssetRef.
+        auto* billboard = m_component->as<nau::scene::BillboardComponent*>();
+        if (billboard)
+        {
+            PXR_NS::SdfAssetPath path;
+            auto attribute = getPrim().GetAttribute(PXR_NS::TfToken("texture"));
+            if (attribute && attribute.Get(&path) && !path.GetResolvedPath().empty())
+            {
+                auto metadata = PXR_NS::UsdStage::Open(path.GetResolvedPath());
+                std::string identity;
+                if (metadata)
+                    for (auto prim : metadata->Traverse())
+                        if (prim.GetTypeName() == PXR_NS::TfToken("NauAssetTexture"))
+                            prim.GetAttribute(PXR_NS::TfToken("uid")).Get(&identity);
+                if (!identity.empty())
+                    billboard->setTextureRef(nau::TextureAssetRef{"uid:" + identity});
+                else
+                    NAU_LOG_ERROR("Billboard {} cannot resolve texture metadata {}", getPrim().GetPath().GetString(), path.GetAssetPath());
+            }
+        }
         // NauComponent can also represent a scene component (for example the
         // editor's camera). Restore its local transform, not its owner's.
         if (auto* sceneComponent = m_component->as<nau::scene::SceneComponent*>())
@@ -106,6 +129,8 @@ namespace UsdTranslator
         for (auto attribute : componentAttributes)
         {
             std::string attributeName = attribute.GetName();
+            if (billboard && attributeName == "texture" && attribute.GetTypeName() == PXR_NS::SdfValueTypeNames->Asset)
+                continue;
             if (!componentAsRuntimeObject->containsKey(attributeName))
             {
                 continue;
@@ -127,6 +152,8 @@ namespace UsdTranslator
         for (size_t i = 0; i < componentAsRuntimeObject->getSize(); ++i)
         {
             std::string_view keyValue = componentAsRuntimeObject->getKey(i);
+            if (billboard && keyValue == "texture")
+                continue;
             const nau::RuntimeValue::Ptr& value = componentAsRuntimeObject->getValue(keyValue);
             if (auto res = createAttributeByValue(getPrim(), PXR_NS::TfToken(std::string(keyValue)), value); !res)
             {

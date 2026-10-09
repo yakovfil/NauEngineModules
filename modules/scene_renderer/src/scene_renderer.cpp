@@ -12,6 +12,7 @@
 #include "nau/module/module.h"
 #include "nau/render/scene_backend.h"
 #include "nau/scene/camera/camera_manager.h"
+#include "nau/scene/components/billboard_component.h"
 #include "nau/scene/components/static_mesh_component.h"
 #include "nau/scene/internal/scene_manager_internal.h"
 #include "nau/scene/packaged_scene_presenter.h"
@@ -134,6 +135,12 @@ namespace nau::render
                         return fail(m_loading.getError());
                     m_loading = nullptr;
                 }
+                if (m_textureLoading && m_textureLoading.isReady())
+                {
+                    if (m_textureLoading.isRejected())
+                        return fail(m_textureLoading.getError());
+                    m_textureLoading = nullptr;
+                }
                 if (m_initialFrame || m_deferredFrame)
                 {
                     getServiceProvider().get<scene::ISceneManagerInternal>().pollSceneWork();
@@ -191,6 +198,27 @@ namespace nau::render
                 live.clear();
                 for (auto* mesh : members)
                     live.insert(toString(mesh->getMeshGeometry()));
+                std::map<std::string, TextureAssetRef> missingTextures;
+                std::set<std::string> liveTextures;
+                for (auto* billboard : billboards())
+                {
+                    auto reference = billboard->getTextureRef();
+                    auto identity = toString(reference);
+                    if (identity.empty())
+                        return fail(NauMakeError("Missing texture on billboard {}", toString(billboard->getUid())));
+                    liveTextures.insert(identity);
+                    if (!m_textures.contains(identity))
+                        missingTextures.emplace(identity, std::move(reference));
+                }
+                if (!missingTextures.empty() && !m_textureLoading)
+                    m_textureLoading = loadTextures(missingTextures);
+                if (m_textureLoading && m_textureLoading.isReady())
+                {
+                    if (m_textureLoading.isRejected())
+                        return fail(m_textureLoading.getError());
+                    m_textureLoading = nullptr;
+                }
+                members = meshes();
                 auto camera = getServiceProvider().get<scene::ICameraManager>().getCameras().getWorldMainCamera();
                 if (!camera)
                     return fail(NauMakeError("Active render world has no camera"));
@@ -206,6 +234,7 @@ namespace nau::render
                 if (!drawable->width || !drawable->height)
                     return {};
                 SceneFrame frame;
+                frame.drawable = {drawable->width, drawable->height};
                 frame.camera = toString(camera->getCameraUid());
                 frame.lightDirection = m_policy.direction;
                 frame.ambient = m_policy.ambient;
@@ -257,9 +286,29 @@ namespace nau::render
                     draw.color = color->second;
                     frame.draws.push_back(std::move(draw));
                 }
+                liveTextures.clear();
+                for (auto* billboard : billboards())
+                {
+                    const auto texture = toString(billboard->getTextureRef());
+                    liveTextures.insert(texture);
+                    BillboardDraw draw;
+                    draw.component = toString(billboard->getUid());
+                    draw.texture = texture;
+                    draw.size = billboard->getScreenPercentageSize();
+                    const auto position = billboard->getWorldTransform().getTranslation();
+                    draw.position = {float(position.getX()), float(position.getY()), float(position.getZ())};
+                    auto center = billboardCenter(frame.viewProjection, draw);
+                    if (!center)
+                        return fail(center.getError());
+                    auto found = m_textures.find(texture);
+                    if (found == m_textures.end())
+                        continue;
+                    draw.image = found->second;
+                    frame.billboards.push_back(std::move(draw));
+                }
                 // Initial presentation requires all visible geometry. Later
                 // activated objects join frames when their accepted loads settle.
-                if (m_initialFrame && (!missing.empty() || m_loading))
+                if (m_initialFrame && (!missing.empty() || m_loading || !missingTextures.empty() || m_textureLoading))
                     return {};
                 auto submitted = m_backend->submit(frame);
                 if (!submitted)
@@ -269,6 +318,11 @@ namespace nau::render
                 for (auto iterator = m_meshes.begin(); iterator != m_meshes.end();)
                     if (!live.contains(iterator->first))
                         iterator = m_meshes.erase(iterator);
+                    else
+                        ++iterator;
+                for (auto iterator = m_textures.begin(); iterator != m_textures.end();)
+                    if (!liveTextures.contains(iterator->first))
+                        iterator = m_textures.erase(iterator);
                     else
                         ++iterator;
                 if (m_initialFrame)
@@ -296,6 +350,13 @@ namespace nau::render
                         m_failure = settled.getError();
                     m_loading = nullptr;
                 }
+                if (m_textureLoading)
+                {
+                    auto settled = co_await m_textureLoading.doTry();
+                    if (!settled && !m_failure)
+                        m_failure = settled.getError();
+                    m_textureLoading = nullptr;
+                }
                 if (m_backend)
                 {
                     auto stopped = m_backend->stop();
@@ -304,6 +365,7 @@ namespace nau::render
                     m_backend.reset();
                 }
                 m_meshes.clear();
+                m_textures.clear();
                 m_materials.clear();
                 NAU_LOG_INFO("Packaged scene presentation cleanup complete");
                 if (m_failure)
@@ -328,6 +390,45 @@ namespace nau::render
                     }, &result, true);
                 }
                 return result;
+            }
+            std::vector<scene::BillboardComponent*> billboards()
+            {
+                std::vector<scene::BillboardComponent*> result;
+                for (auto scene : getServiceProvider().get<scene::ISceneManager>().getDefaultWorld().getScenes())
+                {
+                    if (!scene)
+                        continue;
+                    scene->getRoot().walkComponents([](scene::Component& component, void* context)
+                    {
+                        auto* billboard = component.as<scene::BillboardComponent*>();
+                        if (billboard && billboard->getActivationState() == scene::ActivationState::Active && billboard->getVisibility())
+                            static_cast<std::vector<scene::BillboardComponent*>*>(context)->push_back(billboard);
+                        return true;
+                    }, &result, true);
+                }
+                return result;
+            }
+            async::Task<> loadTextures(std::map<std::string, TextureAssetRef> requests)
+            {
+                for (auto& [identity, reference] : requests)
+                {
+                    if (getApplication().isClosing() || m_stopped)
+                        co_return;
+                    auto view = co_await reference.getAssetViewTyped<CpuTextureView>();
+                    NAU_ASSERT(getApplication().isMainThread());
+                    if (getApplication().isClosing() || m_stopped)
+                        co_return;
+                    const auto members = billboards();
+                    const bool requested = std::any_of(members.begin(), members.end(), [&](auto* billboard)
+                    {
+                        return toString(billboard->getTextureRef()) == identity;
+                    });
+                    if (!requested)
+                        continue;
+                    if (!view)
+                        co_await async::Task<>::makeRejected(NauMakeError("Required CPU texture unavailable: {}", identity));
+                    m_textures.emplace(identity, std::move(view));
+                }
             }
             async::Task<> loadMeshes(std::map<std::string, StaticMeshAssetRef> requests)
             {
@@ -363,6 +464,8 @@ namespace nau::render
             std::map<std::string, nau::Ptr<CpuMeshView>> m_meshes;
             std::unique_ptr<SceneBackend> m_backend;
             async::Task<> m_loading;
+            async::Task<> m_textureLoading;
+            std::map<std::string, nau::Ptr<CpuTextureView>> m_textures;
             bool m_deferredFrame = false;
             std::optional<async::TaskSource<>> m_initialFrame;
         };
@@ -379,6 +482,8 @@ namespace nau::render
             // need to declare or statically register a second internal module.
             NAU_MODULE_EXPORT_SERVICE(CpuMeshContainerLoader);
             NAU_MODULE_EXPORT_SERVICE(CpuMeshViewFactory);
+            NAU_MODULE_EXPORT_SERVICE(CpuTextureContainerLoader);
+            NAU_MODULE_EXPORT_SERVICE(CpuTextureViewFactory);
             NAU_MODULE_EXPORT_SERVICE(SceneRenderer);
         }
         void postInit() override

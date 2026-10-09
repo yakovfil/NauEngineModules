@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "gltf/gltf_mesh_accessor.h"
+#include "nau/assets/cpu_texture.h"
 #include "nau/io/memory_stream.h"
 #include "nau/module/module.h"
 #include "nau/serialization/json.h"
@@ -394,6 +395,8 @@ namespace nau
         {
             NAU_MODULE_EXPORT_SERVICE(CpuMeshContainerLoader);
             NAU_MODULE_EXPORT_SERVICE(CpuMeshViewFactory);
+            NAU_MODULE_EXPORT_SERVICE(CpuTextureContainerLoader);
+            NAU_MODULE_EXPORT_SERVICE(CpuTextureViewFactory);
         }
         void postInit() override
         {

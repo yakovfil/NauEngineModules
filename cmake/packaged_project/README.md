@@ -10,6 +10,34 @@ animation playback, audio and input services are excluded.
 
 ### Basic scene rendering
 
+The rendering profile also supports `nau::scene::BillboardComponent` when it is
+included in the declaration's `supportedComponents`. Author `texture` as an
+asset reference to `NauAssetTexture` metadata whose `path` names a PNG. Host
+preparation preserves its UID and packs a portable RGBA8 texture; Windows and
+web consume the same archive. A missing or invalid required texture fails
+preparation or startup with an identifying diagnostic.
+
+Billboards are unlit, camera-facing squares centered at component world position.
+`screenPercentageSize` is their full width as a fraction of drawable width (default
+`0.1`); height equals that width in pixels. Size stays constant with camera
+distance/FOV and follows viewport resizing. Parent transforms affect world position,
+but quad rotation and size do not use object rotation or scale. Size must be finite
+and positive. Centers outside camera depth bounds are not drawn.
+
+The initial texture subset is single-image 8-bit RGB/RGBA PNG, at most 4096 pixels
+per dimension. RGB is treated as sRGB, alpha as linear; embedded color profiles
+are not converted. The whole texture maps onto the square with linear clamp
+sampling. Alpha below `0.01` discards the pixel; remaining pixels are opaque and
+depth-tested against meshes and billboards. Soft transparency, source-aspect
+sizing and general textured mesh materials are outside this subset.
+
+The native preparation Python interpreter needs Pillow as well as the matching
+USD bindings. Install it with `<host-python> -m pip install Pillow`; use
+`-PythonExecutable` to select that interpreter. The build helper checks this
+dependency before host compilation for declarations supporting billboards.
+Projects without billboard preparation do not require this decoder. Runtime
+packages need neither Pillow nor PNG decoding libraries.
+
 The optional `basic-rendering-scene` profile adds `SceneRenderer` to the logical
 module list. Supply a `rendering` object containing `materials` (source material
 UUID to `materials/*.json` path), optional `defaultMaterial`, and `lighting`

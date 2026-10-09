@@ -10,6 +10,8 @@ import sys
 import uuid
 from packaged_project import declaration, RENDERING_PROFILE, simple_material
 from portable_render_assets import normalize_mesh
+from portable_texture import normalize_texture
+from portable_scene_identity import stable_scene
 
 
 def contained(root, path):
@@ -59,6 +61,7 @@ def prepare(args):
     mesh_metadata = set()
     passive = set()
     seen = set()
+    billboard_textures = {}
 
     def inspect(path):
         path = contained(content, path)
@@ -81,6 +84,16 @@ def prepare(args):
             component = prim.GetAttribute("componentTypeName")
             if component and component.Get() not in supported:
                 raise RuntimeError(f"Unsupported component {component.Get()} on {prim.GetPath()} in {path}")
+            if policy and policy["profile"] == RENDERING_PROFILE and component and component.Get() == "nau::scene::BillboardComponent":
+                size = prim.GetAttribute("screenPercentageSize")
+                if size and size.Get() is not None and (not math.isfinite(size.Get()) or size.Get() <= 0):
+                    raise RuntimeError(f"Invalid billboard size on {prim.GetPath()} in {path}")
+                texture = prim.GetAttribute("texture")
+                asset = texture.Get() if texture else None
+                if not asset or not getattr(asset, "path", ""):
+                    raise RuntimeError(f"Missing billboard texture on {prim.GetPath()} in {path}")
+                texture_path = contained(content, content / asset.path[len(prefix):] if asset.path.startswith(prefix) else pathlib.Path(Sdf.ComputeAssetPathRelativeToLayer(texture.GetPropertyStack()[0].layer, asset.path)))
+                billboard_textures[str(prim.GetAttribute("uid").Get())] = texture_path
             if str(prim.GetTypeName()) == "NauAssetMesh":
                 for spec in prim.GetPrimStack():
                     if spec.layer.realPath and spec.layer.realPath.endswith(".nausd"):
@@ -142,6 +155,32 @@ def prepare(args):
                 initial_entries.append(dict(uid=identity, dbPath=payload, kind="PassiveData",
                                             sourceType="nausd", sourcePath=relative[:-6], nausdPath=relative))
         database_file.write_text(json.dumps(initial_database))
+    if billboard_textures:
+        texture_database = json.loads(database_file.read_text()) if database_file.exists() else {"content": []}
+        texture_entries = texture_database.setdefault("content", [])
+        for metadata in sorted(set(billboard_textures.values())):
+            texture_stage = Usd.Stage.Open(str(metadata))
+            texture_prims = [prim for prim in texture_stage.Traverse() if str(prim.GetTypeName()) == "NauAssetTexture"]
+            if len(texture_prims) != 1:
+                raise RuntimeError(f"Missing or ambiguous billboard texture metadata: {metadata}")
+            prim = texture_prims[0]
+            identity = str(uuid.UUID(prim.GetAttribute("uid").Get()))
+            source_attribute = prim.GetAttribute("path")
+            source = contained(content, pathlib.Path(Sdf.ComputeAssetPathRelativeToLayer(source_attribute.GetPropertyStack()[0].layer, source_attribute.Get().path)))
+            payload = normalize_texture(source)
+            relative = metadata.relative_to(content).as_posix()
+            output_relative = f"textures/{identity}.ntex"
+            output = scratch / "assets_database" / output_relative
+            output.parent.mkdir(exist_ok=True)
+            output.write_bytes(payload)
+            existing = next((entry for entry in texture_entries if entry["uid"] == identity), None)
+            record = dict(uid=identity, dbPath=output_relative, kind="Texture", sourceType=source.suffix[1:], sourcePath=source.relative_to(content).with_suffix("").as_posix(), nausdPath=relative)
+            if existing:
+                existing.update(record)
+            else:
+                texture_entries.append(record)
+            seen.update((metadata, source))
+        database_file.write_text(json.dumps(texture_database))
     for scene in scenes:
         compile_asset(pathlib.Path(str(scene) + ".nausd"))
 
@@ -223,6 +262,12 @@ def prepare(args):
                 component = next((item for item in components if item["uid"] == identity), None)
                 if not component or component.get("componentTypeName") != type_attribute.Get():
                     raise RuntimeError(f"Native compiler lost component {type_attribute.Get()} on {prim.GetPath()}")
+                if str(identity) in billboard_textures:
+                    metadata = billboard_textures[str(identity)]
+                    texture_stage = Usd.Stage.Open(str(metadata))
+                    texture_uid = next(str(uuid.UUID(value.Get())) for target in texture_stage.Traverse() if (value := target.GetAttribute("uid")) and value.Get())
+                    if component["properties"].get("texture") != "uid:" + texture_uid:
+                        raise RuntimeError(f"Native compiler lost billboard texture on {prim.GetPath()}")
                 for attribute in prim.GetAttributes():
                     name = str(attribute.GetName())
                     authored = attribute.Get()
@@ -253,6 +298,14 @@ def prepare(args):
             for item in components:
                 if item.get("componentTypeName") == "nau::scene::StaticMeshComponent" and not item["properties"].get("material") and "defaultMaterial" not in policy["rendering"]:
                     raise RuntimeError(f"Missing explicit default material for component {item['uid']} in {source}")
+    if policy and policy["profile"] == RENDERING_PROFILE:
+        for source in scenes:
+            relative = source.relative_to(content).as_posix()
+            record = next(entry for entry in entries if entry["sourcePath"] + "." + entry["sourceType"] == relative)
+            stage = Usd.Stage.Open(str(source))
+            authored = {str(value.Get()) for prim in stage.Traverse() if (value := prim.GetAttribute("uid")) and value.Get()}
+            cooked = scratch / "assets_database" / record["dbPath"]
+            cooked.write_bytes(stable_scene(cooked.read_bytes(), record["uid"], authored))
     database_file.write_text(json.dumps(database, indent=2))
 
     packaged_config = scratch / "config"

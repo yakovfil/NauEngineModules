@@ -19,7 +19,8 @@ if(NAU_PACKAGED_PROJECT_RUNTIME_PROFILE STREQUAL "basic-rendering-scene")
   set(NAU_SCENE_CoreAssetsCpu_SOURCES
     "${NAU_MODULES_SOURCE_DIR}/modules/asset_formats/src/gltf/gltf_file.cpp"
     "${NAU_MODULES_SOURCE_DIR}/modules/asset_formats/src/gltf/gltf_mesh_accessor.cpp"
-    "${NAU_MODULES_SOURCE_DIR}/modules/assets_cpu/src/cpu_mesh.cpp")
+    "${NAU_MODULES_SOURCE_DIR}/modules/assets_cpu/src/cpu_mesh.cpp"
+    "${NAU_MODULES_SOURCE_DIR}/modules/assets_cpu/src/cpu_texture.cpp")
   if(WIN32)
     list(APPEND NAU_MINIMAL_DEPENDENCY_DIRS binPack2D RenderDoc adl_sdk dxc ska_hash_map xxHash zstd-1.4.5 zlib-ng)
     list(APPEND NAU_MINIMAL_DEPENDENCY_TARGETS binPack2D RenderDoc adlSdk dxc ska_hash_map xxHash zstd-1.4.5 zlib-ng)
