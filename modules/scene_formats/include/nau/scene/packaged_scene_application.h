@@ -9,6 +9,15 @@
 
 namespace nau::scene
 {
+    // Optional feature consumers prepare after the archive is mounted and before Running.
+    struct NAU_ABSTRACT_TYPE IPackagedScenePreparation
+    {
+        NAU_TYPEID(nau::scene::IPackagedScenePreparation)
+        virtual async::Task<> preparePackagedScene() = 0;
+        virtual void packagedSceneReady()
+        {
+        }
+    };
     struct PackagedSceneOptions
     {
         // Empty selects content.nau_pack in the platform executable/preload directory.

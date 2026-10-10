@@ -335,6 +335,17 @@ def prepare(args):
             {"scene": {"startupScene": prefix + scene.relative_to(content).as_posix()}}))
 
     files = material_files.copy()
+    if policy and "audio" in policy:
+        from portable_audio import validate_wav
+        relative = policy["audio"]["click"]
+        source = contained(content, content / relative)
+        try:
+            validate_wav(source.read_bytes())
+        except ValueError as error:
+            raise RuntimeError(f"Invalid required audio {relative}: {error}") from error
+        seen.add(source)
+        files.append(dict(source=str(source), path=relative))
+        (packaged_config / "audio.json").write_text(json.dumps(policy["audio"]))
     for directory, archive_root in ((packaged_config, "config"), (scratch / "assets_database", "assets_db")):
         for file in sorted(directory.rglob("*")):
             if file.is_file():

@@ -65,7 +65,7 @@ def declaration(path):
         if len(set(values)) != len(values):
             raise ValueError(f"Duplicate portable declaration {field}")
     required = RENDERING_MODULES if data["profile"] == RENDERING_PROFILE else MODULES
-    allowed = required | {"CoreInput"} if data["profile"] == RENDERING_PROFILE else required
+    allowed = required | {"CoreInput", "Audio"} if data["profile"] == RENDERING_PROFILE else required
     if not required <= set(data["modules"]) <= allowed:
         raise ValueError(f"Unsupported or missing portable modules: {data['modules']}")
     if not isinstance(data.get("projectModule"), str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", data["projectModule"]):
@@ -76,6 +76,12 @@ def declaration(path):
         render_configuration(data.get("rendering"))
     elif "rendering" in data:
         raise ValueError("Rendering settings require the basic-rendering-scene profile")
+    if "audio" in data:
+        audio = data["audio"]
+        if "Audio" not in data["modules"] or not isinstance(audio, dict) or set(audio) != {"click"}:
+            raise ValueError("Audio mapping requires Audio module and exactly one click source")
+        if not isinstance(audio["click"], str) or not re.fullmatch(r"audio/[A-Za-z0-9_-]+\.wav", audio["click"]):
+            raise ValueError("Invalid portable click WAV path")
     return data
 
 
@@ -115,6 +121,11 @@ def validate_archive(path, policy):
     for name in (policy["startupConfiguration"].lstrip("/"), "config/app.json", "assets_db/database.db"):
         if not isinstance(json.loads(files[name]), dict):
             raise ValueError(f"Invalid prepared JSON: {name}")
+    if "audio" in policy:
+        from portable_audio import validate_wav
+        if json.loads(files["config/audio.json"]) != policy["audio"]:
+            raise ValueError("Prepared audio mapping mismatch")
+        validate_wav(files[policy["audio"]["click"]])
     if policy["profile"] == RENDERING_PROFILE:
         from portable_render_assets import normalize_mesh
         settings = render_configuration(json.loads(files["config/rendering.json"]))

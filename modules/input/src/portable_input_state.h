@@ -22,13 +22,19 @@ namespace nau::input
         {
             std::lock_guard lock(m_mutex);
             if (code >= 0 && code < KeyCount)
+            {
+                if (down && !m_pendingKeys[code] && m_pendingKeyPresses[code] < 8)
+                    ++m_pendingKeyPresses[code];
                 m_pendingKeys[code] = down;
+            }
         }
         void button(int code, bool down)
         {
             std::lock_guard lock(m_mutex);
             if (code >= 0 && code < ButtonCount)
             {
+                if (down && !m_pendingButtons[code] && m_pendingButtonPresses[code] < 8)
+                    ++m_pendingButtonPresses[code];
                 if (code == 0 && down && !m_pendingButtons[code])
                     m_pendingDx = m_pendingDy = 0;
                 m_pendingButtons[code] = down;
@@ -53,6 +59,9 @@ namespace nau::input
             std::lock_guard lock(m_mutex);
             m_pendingKeys.fill(false);
             m_pendingButtons.fill(false);
+            m_pendingKeyPresses.fill(0);
+            m_pendingButtonPresses.fill(0);
+            ++m_resetGeneration;
             m_pendingDx = m_pendingDy = 0;
             m_positionKnown = false;
         }
@@ -63,6 +72,11 @@ namespace nau::input
             m_previousButtons = m_buttons;
             m_keys = m_pendingKeys;
             m_buttons = m_pendingButtons;
+            m_keyPresses = m_pendingKeyPresses;
+            m_publishedResetGeneration = m_resetGeneration;
+            m_buttonPresses = m_pendingButtonPresses;
+            m_pendingKeyPresses.fill(0);
+            m_pendingButtonPresses.fill(0);
             m_x = m_pendingX;
             m_y = m_pendingY;
             m_dx = discardMotion ? 0 : m_pendingDx;
@@ -72,6 +86,29 @@ namespace nau::input
         bool keyHeld(int device, int code) const
         {
             return device == 0 && code >= 0 && code < KeyCount && m_keys[code];
+        }
+        unsigned keyPressCount(int device, int code) const
+        {
+            return device == 0 && code >= 0 && code < KeyCount ? m_keyPresses[code] : 0;
+        }
+        unsigned buttonPressCount(int device, int code) const
+        {
+            return device == 0 && code >= 0 && code < ButtonCount ? m_buttonPresses[code] : 0;
+        }
+        unsigned frameResetGeneration() const
+        {
+            return m_publishedResetGeneration;
+        }
+        void discardPendingPresses()
+        {
+            std::lock_guard lock(m_mutex);
+            m_pendingKeyPresses.fill(0);
+            m_pendingButtonPresses.fill(0);
+        }
+        unsigned resetGeneration() const
+        {
+            std::lock_guard lock(m_mutex);
+            return m_resetGeneration;
         }
         bool keyPressed(int device, int code) const
         {
@@ -103,7 +140,11 @@ namespace nau::input
         }
 
     private:
-        std::mutex m_mutex;
+        mutable std::mutex m_mutex;
+        unsigned m_resetGeneration = 0;
+        unsigned m_publishedResetGeneration = 0;
+        std::array<unsigned, KeyCount> m_pendingKeyPresses{}, m_keyPresses{};
+        std::array<unsigned, ButtonCount> m_pendingButtonPresses{}, m_buttonPresses{};
         std::array<bool, KeyCount> m_pendingKeys{}, m_keys{}, m_previousKeys{};
         std::array<bool, ButtonCount> m_pendingButtons{}, m_buttons{}, m_previousButtons{};
         float m_pendingX = 0, m_pendingY = 0, m_pendingDx = 0, m_pendingDy = 0;

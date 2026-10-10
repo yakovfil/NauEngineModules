@@ -10,6 +10,27 @@
 #include "nau/rtti/type_info.h"
 #include "nau/service/service_provider.h"
 
+unsigned nau::input::keyboardPressCount(int device, Key key)
+{
+    return getServiceProvider().get<InputManager>().keyboardPressCount(device, key);
+}
+unsigned nau::input::mousePressCount(int device, MouseKey key)
+{
+    return getServiceProvider().get<InputManager>().mousePressCount(device, key);
+}
+unsigned nau::input::inputResetGeneration()
+{
+    return getServiceProvider().get<InputManager>().resetGeneration();
+}
+unsigned nau::input::inputFrameResetGeneration()
+{
+    return getServiceProvider().get<InputManager>().frameResetGeneration();
+}
+void nau::input::discardPendingPresses()
+{
+    getServiceProvider().get<InputManager>().discardPendingPresses();
+}
+
 void nau::input::setScreenResolution(int x, int y)
 {
     nau::getServiceProvider().get<nau::input::InputManager>().setScreenResolution(x, y);

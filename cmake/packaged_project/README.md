@@ -4,10 +4,27 @@ The `non-rendering-scene` profile builds the same application entry, project
 components and packaged-scene startup on Windows and web. It preserves real
 scene hierarchy, transforms, camera data and passive static-mesh/material
 references, with checked activation, updates and cleanup. Graphics, physics,
-animation playback and audio services are excluded. Input is optional in the
+animation playback services are excluded. Input and audio are optional in the
 `basic-rendering-scene` profile: explicitly add `CoreInput` to its module list to
 enable keyboard and pointer queries on Windows and web. The non-rendering profile
-continues to exclude input.
+continues to exclude input and audio.
+
+Select `Audio` in a rendering declaration to enable checked non-spatial one-shot
+playback. An optional `"audio": {"click": "audio/click.wav"}` mapping packages
+the named file from the project's content directory and exposes its package
+path to game code. Mappings require the Audio module. The initial WAV subset is
+RIFF PCM16 mono/stereo at 44.1/48 kHz, at most one second and 256 KiB. Required
+audio is validated before publication and runtime decoding. The portable audio
+API reads mounted archive bytes and uses the bundled miniaudio decoder/mixer and
+native WASAPI or browser Web Audio output.
+
+Browser output may report AwaitingGesture while the scene is Running. An
+eligible focused interaction activates it, including that interaction's sound.
+Pending activation feedback is limited to nine requests for one second; excess
+requests are dropped. Focus loss and Stop clear it. Sixteen playback voices are
+reclaimed after completion; a full pool reuses its oldest voice. Portable input
+counts up to eight new presses per control per frame and drops additional
+presses, ignoring auto-repeat. No-audio selections retain their existing graph.
 
 ## Declare the project
 
@@ -64,7 +81,7 @@ Native builds require Windows SDK DXC shader tools (or the CMake
 `NAU_DXC_EXECUTABLE` override); browser builds embed GLSL without native shader
 tool dependencies. Shader bytes are target implementation resources, separate
 from the project archive. The native adapter uses the existing DX12 Render
-driver; this profile does not enable full Graphics, physics, animation or audio.
+driver; this profile does not enable full Graphics, physics or animation.
 
 Initial presentation gates Running. Zero drawable size suspends submissions.
 Stop settles accepted work and releases graphics resources before window teardown.

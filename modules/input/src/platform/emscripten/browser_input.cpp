@@ -88,6 +88,7 @@ namespace nau::input
                 if (oldTabindex === null) element.tabIndex = 0;
                 const key = event => {
                     if (document.activeElement !== element || document.hidden) return;
+                    if (event.type === 'keydown' && event.repeat) return;
                     const name = aliases[event.code] || (event.code.startsWith('Key') ? event.code.slice(3) :
                         event.code.startsWith('Digit') ? 'N' + event.code.slice(5) : event.code);
                     const code = keys[name] ?? -1;
@@ -102,7 +103,6 @@ namespace nau::input
                     if (event.pointerType !== 'mouse' || (pointer !== null && pointer !== event.pointerId)) return;
                     element.focus({preventScroll: true});
                     move(event);
-                    send(2, event.button === 1 ? 1 : event.button === 2 ? 2 : event.button, 1);
                     pointer = event.pointerId;
                     try {
                         element.setPointerCapture(pointer);
@@ -111,19 +111,27 @@ namespace nau::input
                         console.error('CoreInput pointer capture failed', error);
                     }
                 });
+                // Mouse events retain individual button transitions during chords;
+                // pointerdown/up alone only cover the first/last held button.
+                listen(element, 'mousedown', event => {
+                    if (!event.sourceCapabilities?.firesTouchEvents && !document.hidden && document.activeElement === element) send(2, event.button, 1);
+                });
+                listen(element, 'mouseup', event => { send(2, event.button, 0); });
                 listen(element, 'pointermove', event => {
                     if (event.pointerType === 'mouse' && (pointer === null || pointer === event.pointerId)) move(event);
                 });
                 listen(element, 'pointerup', event => {
                     if (event.pointerType !== 'mouse') return;
                     move(event);
-                    send(2, event.button, 0);
                     if (!event.buttons) {
-                        if (pointer !== null && element.hasPointerCapture(pointer)) element.releasePointerCapture(pointer);
+                        const released = pointer;
                         pointer = null;
+                        if (released !== null && element.hasPointerCapture(released)) element.releasePointerCapture(released);
                     }
                 });
-                listen(element, 'lostpointercapture', reset);
+                listen(element, 'lostpointercapture', () => { if (pointer !== null) reset(); });
+                listen(element, 'contextmenu', event => { if (document.activeElement === element) event.preventDefault(); });
+                listen(element, 'auxclick', event => { if (document.activeElement === element) event.preventDefault(); });
                 listen(element, 'pointercancel', reset);
                 listen(element, 'blur', reset);
                 listen(window, 'blur', reset);

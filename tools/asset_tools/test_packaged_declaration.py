@@ -32,6 +32,19 @@ class DeclarationTests(unittest.TestCase):
         with_input = copy.deepcopy(rendering)
         with_input["modules"].append("CoreInput")
         cases.append(("rendering-input", with_input, True))
+        with_audio = copy.deepcopy(with_input)
+        with_audio["modules"].append("Audio")
+        with_audio["audio"] = {"click": "audio/click.wav"}
+        cases.append(("rendering-audio", with_audio, True))
+        bad_audio = copy.deepcopy(with_audio)
+        bad_audio["audio"]["click"] = "audio/../click.wav"
+        cases.append(("audio-traversal", bad_audio, False))
+        unselected_audio = copy.deepcopy(rendering)
+        unselected_audio["audio"] = {"click": "audio/click.wav"}
+        cases.append(("audio-without-module", unselected_audio, False))
+        misplaced_audio = copy.deepcopy(base)
+        misplaced_audio["audio"] = {"click": "audio/click.wav"}
+        cases.append(("audio-non-rendering", misplaced_audio, False))
         non_rendering_input = copy.deepcopy(base)
         non_rendering_input["modules"].append("CoreInput")
         cases.append(("non-rendering-input", non_rendering_input, False))

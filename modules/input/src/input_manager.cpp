@@ -21,6 +21,22 @@ constexpr int mouseOffset = static_cast<int>(nau::input::Key::KeyCount_);
 
 namespace nau::input
 {
+    unsigned InputManagerImpl::keyboardPressCount(int device, Key key)
+    {
+#ifdef NAU_PORTABLE_INPUT
+        return m_state.keyPressCount(device, static_cast<int>(key));
+#else
+        return isKeyboardButtonPressed(device, key) ? 1u : 0u;
+#endif
+    }
+    unsigned InputManagerImpl::mousePressCount(int device, MouseKey key)
+    {
+#ifdef NAU_PORTABLE_INPUT
+        return m_state.buttonPressCount(device, static_cast<int>(key));
+#else
+        return isMouseButtonPressed(device, key) ? 1u : 0u;
+#endif
+    }
     async::Task<> InputManagerImpl::preInitService()
     {
         m_keyboard = m_inputManager.CreateDevice<gainput::InputDeviceKeyboard>(gainput::InputDevice::AutoIndex, gainput::InputDevice::DV_RAW);
@@ -377,6 +393,8 @@ namespace nau::input
     {
         if (hwnd != m_window.load())
             return;
+        if (message == WM_CAPTURECHANGED && m_releasingCapture)
+            return;
         if (message == WM_KILLFOCUS || message == WM_CAPTURECHANGED ||
             (message == WM_ACTIVATEAPP && !wParam) || message == WM_DESTROY)
         {
@@ -436,11 +454,17 @@ namespace nau::input
             {
                 m_pointerButtons &= ~(1u << button);
                 if (!m_pointerButtons && GetCapture() == hwnd)
+                {
+                    m_releasingCapture = true;
                     ReleaseCapture();
+                    m_releasingCapture = false;
+                }
             }
         }
         if (message == WM_KEYDOWN || message == WM_SYSKEYDOWN || message == WM_KEYUP || message == WM_SYSKEYUP)
         {
+            if ((message == WM_KEYDOWN || message == WM_SYSKEYDOWN) && (lParam & (intptr_t{1} << 30)))
+                return;
             int key = -1;
             if (wParam >= 'A' && wParam <= 'Z')
                 key = static_cast<int>(Key::A) + static_cast<int>(wParam - 'A');

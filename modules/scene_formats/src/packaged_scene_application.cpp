@@ -192,6 +192,13 @@ namespace nau::scene
                 }
                 getServiceProvider().get<IAssetDB>().addAssetDB(m_options.databasePath);
 
+                for (auto* preparation : getServiceProvider().getAll<IPackagedScenePreparation>())
+                {
+                    if (getApplication().isClosing())
+                        co_return;
+                    co_await preparation->preparePackagedScene();
+                }
+
                 if (getApplication().isClosing())
                     co_return;
                 auto scene = co_await loadStartupSceneChecked(*startup, m_options.supportedComponents);
@@ -205,20 +212,26 @@ namespace nau::scene
                 if (m_options.runtimeProfile == "basic-rendering-scene" && !getApplication().isClosing())
                 {
                     auto* presenter = getServiceProvider().find<IPackagedScenePresenter>();
-                    if (!presenter) co_await async::Task<>::makeRejected(NauMakeError("Required SceneRenderer service is unavailable"));
+                    if (!presenter)
+                        co_await async::Task<>::makeRejected(NauMakeError("Required SceneRenderer service is unavailable"));
                     co_await presenter->preparePresentation(m_options.renderingConfiguration);
                 }
-                if (getApplication().isClosing()) co_return;
+                if (getApplication().isClosing())
+                    co_return;
+                for (auto* preparation : getServiceProvider().getAll<IPackagedScenePreparation>())
+                    preparation->packagedSceneReady();
                 NAU_LOG_INFO("Packaged scene Running");
             }
 
             void onApplicationPostUpdate(std::chrono::milliseconds) override
             {
-                if (m_options.runtimeProfile != "basic-rendering-scene" || getApplication().isClosing()) return;
+                if (m_options.runtimeProfile != "basic-rendering-scene" || getApplication().isClosing())
+                    return;
                 if (auto* presenter = getServiceProvider().find<IPackagedScenePresenter>())
                 {
                     auto result = presenter->presentFrame();
-                    if (!result) getApplication().stop();
+                    if (!result)
+                        getApplication().stop();
                 }
             }
 

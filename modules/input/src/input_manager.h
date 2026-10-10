@@ -48,6 +48,20 @@ namespace nau::input
         virtual float getMouseAxisDelta(int deviceId, nau::input::MouseKey axis) override;
 
         void gameInputUpdate(std::chrono::milliseconds dt) override;
+        unsigned keyboardPressCount(int device, Key key) override;
+        unsigned mousePressCount(int device, MouseKey key) override;
+        unsigned resetGeneration() const override
+        {
+            return m_state.resetGeneration();
+        }
+        unsigned frameResetGeneration() const override
+        {
+            return m_state.frameResetGeneration();
+        }
+        void discardPendingPresses() override
+        {
+            m_state.discardPendingPresses();
+        }
         void handleWindowMessage(void* hwnd, unsigned message, uintptr_t wParam, intptr_t lParam);
         void handleGainputMessage(const MSG& message);
 
@@ -56,6 +70,7 @@ namespace nau::input
         std::mutex m_gainputMutex;
         std::atomic<void*> m_window{nullptr};
         unsigned m_pointerButtons = 0;  // Accessed only on the Windows message thread.
+        bool m_releasingCapture = false;
         bool m_automatic = false;
         bool m_firstFrame = true;
         bool inited = false;

@@ -13,6 +13,25 @@ namespace nau::input
         virtual void setScreenResolution(int x, int y) = 0;
         virtual void update() = 0;
         virtual void update(float dt) = 0;
+        virtual unsigned keyboardPressCount(int device, Key key)
+        {
+            return isKeyboardButtonPressed(device, key) ? 1u : 0u;
+        }
+        virtual unsigned mousePressCount(int device, MouseKey key)
+        {
+            return isMouseButtonPressed(device, key) ? 1u : 0u;
+        }
+        virtual unsigned resetGeneration() const
+        {
+            return 0;
+        }
+        virtual unsigned frameResetGeneration() const
+        {
+            return 0;
+        }
+        virtual void discardPendingPresses()
+        {
+        }
         virtual bool isKeyboardButtonPressed(int deviceId, Key key) = 0;
         virtual bool isKeyboardButtonHold(int deviceId, Key key) = 0;
         virtual bool isMouseButtonPressed(int deviceId, MouseKey key) = 0;

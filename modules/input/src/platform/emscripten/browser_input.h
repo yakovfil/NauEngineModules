@@ -23,6 +23,26 @@ namespace nau::input
         async::Task<> shutdownService() override;
         void gameInputUpdate(std::chrono::milliseconds) override;
         void event(int type, int code, float x, float y);
+        unsigned keyboardPressCount(int device, Key key) override
+        {
+            return m_state.keyPressCount(device, static_cast<int>(key));
+        }
+        unsigned mousePressCount(int device, MouseKey key) override
+        {
+            return m_state.buttonPressCount(device, static_cast<int>(key));
+        }
+        unsigned resetGeneration() const override
+        {
+            return m_state.resetGeneration();
+        }
+        unsigned frameResetGeneration() const override
+        {
+            return m_state.frameResetGeneration();
+        }
+        void discardPendingPresses() override
+        {
+            m_state.discardPendingPresses();
+        }
         void setScreenResolution(int, int) override
         {
         }  // Coordinates are CSS/client pixels.

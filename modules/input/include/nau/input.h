@@ -261,6 +261,15 @@ namespace nau::input
    * It is necessary for the manager to be aware of the screen size for correct mouse input mapping.
    */
   NAU_COREINPUT_EXPORT void setScreenResolution(int x, int y);
+  // Portable counts preserve taps between frames, saturate at eight per control,
+  // ignore auto-repeat and clear on focus/capture cancellation. Legacy queries return 0/1.
+  NAU_COREINPUT_EXPORT unsigned keyboardPressCount(int deviceId, Key key);
+  NAU_COREINPUT_EXPORT unsigned mousePressCount(int deviceId, MouseKey key);
+  NAU_COREINPUT_EXPORT unsigned inputResetGeneration();
+  // Compare the live cancellation epoch with the epoch captured for this frame.
+  NAU_COREINPUT_EXPORT unsigned inputFrameResetGeneration();
+  // Startup boundary: discard earlier transitions while retaining held controls.
+  NAU_COREINPUT_EXPORT void discardPendingPresses();
 
   /** 
    * @brief Updates the input state.

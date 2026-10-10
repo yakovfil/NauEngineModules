@@ -9,6 +9,75 @@
 
 namespace nau::test
 {
+    TEST(PortableInput, CountsBriefPressesAndIgnoresRepeat)
+    {
+        input::PortableInputState state;
+        const int key = static_cast<int>(input::Key::W);
+        state.key(key, true);
+        state.key(key, true);
+        state.key(key, false);
+        state.key(key, true);
+        state.key(key, false);
+        state.button(1, true);
+        state.button(1, false);
+        state.publish();
+        EXPECT_EQ(state.keyPressCount(0, key), 2u);
+        EXPECT_EQ(state.buttonPressCount(0, 1), 1u);
+        EXPECT_FALSE(state.keyHeld(0, key));
+        EXPECT_FALSE(state.buttonHeld(0, 1));
+        EXPECT_EQ(state.keyPressCount(99, key), 0u);
+        EXPECT_EQ(state.keyPressCount(0, -1), 0u);
+        state.publish();
+        EXPECT_EQ(state.keyPressCount(0, key), 0u);
+        EXPECT_EQ(state.buttonPressCount(0, 1), 0u);
+    }
+    TEST(PortableInput, CountsAreBoundedAndCancelled)
+    {
+        input::PortableInputState state;
+        for (int i = 0; i < 100; ++i)
+        {
+            state.key(0, true);
+            state.key(0, false);
+        }
+        state.publish();
+        EXPECT_EQ(state.keyPressCount(0, 0), 8u);
+        const auto generation = state.resetGeneration();
+        state.key(0, true);
+        state.button(0, true);
+        state.reset();
+        state.publish();
+        EXPECT_EQ(state.keyPressCount(0, 0), 0u);
+        EXPECT_EQ(state.buttonPressCount(0, 0), 0u);
+        EXPECT_NE(state.resetGeneration(), generation);
+    }
+    TEST(PortableInput, PublishedCountsRemainStableUntilNextFrame)
+    {
+        input::PortableInputState state;
+        state.key(0, true);
+        state.publish();
+        const auto frame = state.frameResetGeneration();
+        state.reset();
+        EXPECT_EQ(state.keyPressCount(0, 0), 1u);
+        EXPECT_EQ(state.frameResetGeneration(), frame);
+        EXPECT_NE(state.resetGeneration(), frame);
+        state.key(0, true);
+        state.publish();
+        EXPECT_EQ(state.keyPressCount(0, 0), 1u);
+        EXPECT_EQ(state.frameResetGeneration(), state.resetGeneration());
+    }
+    TEST(PortableInput, StartupBoundaryPreservesFirstEligiblePress)
+    {
+        input::PortableInputState state;
+        state.key(0, true);
+        state.key(0, false);
+        state.discardPendingPresses();
+        state.button(0, true);
+        state.button(0, false);
+        state.publish(true);
+        EXPECT_EQ(state.keyPressCount(0, 0), 0u);
+        EXPECT_EQ(state.buttonPressCount(0, 0), 1u);
+        EXPECT_FLOAT_EQ(state.delta(0, input::MouseKey::AxisX), 0);
+    }
 #if defined(NAU_PLATFORM_WIN32) && defined(NAU_STATIC_RUNTIME)
     TEST(PortableInput, NativeGainputSignalsRemainAvailable)
     {
