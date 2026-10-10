@@ -1,15 +1,20 @@
 // Copyright 2024 N-GINN LLC. All rights reserved.
 // Use of this source code is governed by a BSD-3 Clause license that can be found in the LICENSE file.
 
-
 #include "input_manager.h"
 
 #include <gainput/gainput.h>
+#include <windowsx.h>
+
+#include <algorithm>
 
 #include "gainput/GainputInputDeviceKeyboard.h"
 #include "gainput/GainputInputDeviceMouse.h"
+#include "nau/app/core_window_manager.h"
 #include "nau/diag/assertion.h"
 #include "nau/input.h"
+#include "nau/platform/windows/app/windows_window.h"
+#include "nau/service/service_provider.h"
 
 constexpr int keyboardOffset = 0;
 constexpr int mouseOffset = static_cast<int>(nau::input::Key::KeyCount_);
@@ -242,6 +247,13 @@ namespace nau::input
 
     async::Task<> InputManagerImpl::initService()
     {
+#ifdef NAU_PORTABLE_INPUT
+        auto* manager = getServiceProvider().find<ICoreWindowManager>();
+        auto* window = manager ? manager->getActiveWindow().as<IWindowsWindow*>() : nullptr;
+        if (!window || !window->getWindowHandle())
+            return async::Task<>::makeRejected(NauMakeError("CoreInput cannot bind the active Windows window"));
+        m_window = window->getWindowHandle();
+#endif
         return async::Task<>::makeResolved();
     }
 
@@ -252,51 +264,329 @@ namespace nau::input
 
     void InputManagerImpl::setScreenResolution(int x, int y)
     {
+        std::lock_guard lock(m_gainputMutex);
         m_inputManager.SetDisplaySize(x, y);
     }
 
     void InputManagerImpl::update()
     {
-        m_inputManager.Update();
+        std::lock_guard lock(m_gainputMutex);
+        if (!m_automatic)
+        {
+            m_inputManager.Update();
+            m_state.publish();
+        }
     }
 
     void InputManagerImpl::update(float dt)
     {
-        m_inputManager.Update(dt);
+        std::lock_guard lock(m_gainputMutex);
+        if (!m_automatic)
+        {
+            m_inputManager.Update(static_cast<uint64_t>(std::max(0.f, dt) * 1000.f));
+            m_state.publish();
+        }
     }
 
     bool InputManagerImpl::isKeyboardButtonPressed(int deviceId, nau::input::Key key)
     {
-        return m_inputMap.GetBoolWasDown(keyboardOffset + static_cast<int>(key));
+#ifndef NAU_PORTABLE_INPUT
+        return deviceId == 0 && key >= Key::Escape && key < Key::KeyCount_ && m_inputMap.GetBoolWasDown(keyboardOffset + static_cast<int>(key));
+#else
+        return m_state.keyPressed(deviceId, static_cast<int>(key));
+#endif
     }
 
     bool InputManagerImpl::isKeyboardButtonHold(int deviceId, nau::input::Key key)
     {
-        return m_inputMap.GetBool(keyboardOffset + static_cast<int>(key));
+#ifndef NAU_PORTABLE_INPUT
+        return deviceId == 0 && key >= Key::Escape && key < Key::KeyCount_ && m_inputMap.GetBool(keyboardOffset + static_cast<int>(key));
+#else
+        return m_state.keyHeld(deviceId, static_cast<int>(key));
+#endif
     }
 
     bool InputManagerImpl::isMouseButtonPressed(int deviceId, nau::input::MouseKey key)
     {
-        return m_inputMap.GetBoolIsNew(mouseOffset + static_cast<int>(key));
+#ifndef NAU_PORTABLE_INPUT
+        return deviceId == 0 && key >= MouseKey::Button0 && key < MouseKey::ButtonCount && m_inputMap.GetBoolIsNew(mouseOffset + static_cast<int>(key));
+#else
+        return m_state.buttonPressed(deviceId, static_cast<int>(key));
+#endif
     }
 
     bool InputManagerImpl::isMouseButtonReleased(int deviceId, nau::input::MouseKey key)
     {
-        return m_inputMap.GetBoolWasDown(mouseOffset + static_cast<int>(key));
+#ifndef NAU_PORTABLE_INPUT
+        return deviceId == 0 && key >= MouseKey::Button0 && key < MouseKey::ButtonCount && m_inputMap.GetBoolWasDown(mouseOffset + static_cast<int>(key));
+#else
+        return m_state.buttonReleased(deviceId, static_cast<int>(key));
+#endif
     }
 
     bool InputManagerImpl::isMouseButtonHold(int deviceId, nau::input::MouseKey key)
     {
-        return m_inputMap.GetBool(mouseOffset + static_cast<int>(key));
+#ifndef NAU_PORTABLE_INPUT
+        return deviceId == 0 && key >= MouseKey::Button0 && key < MouseKey::ButtonCount && m_inputMap.GetBool(mouseOffset + static_cast<int>(key));
+#else
+        return m_state.buttonHeld(deviceId, static_cast<int>(key));
+#endif
     }
 
     float InputManagerImpl::getMouseAxisValue(int deviceId, nau::input::MouseKey axis)
     {
-        return m_inputMap.GetFloat(mouseOffset + static_cast<int>(axis));
+#ifndef NAU_PORTABLE_INPUT
+        if (deviceId == 0 && axis >= MouseKey::AxisX && axis <= MouseKey::HWheel)
+            return m_inputMap.GetFloat(mouseOffset + static_cast<int>(axis));
+        return 0;
+#else
+        if (deviceId == 0 && (axis == MouseKey::Wheel || axis == MouseKey::HWheel))
+            return m_inputMap.GetFloat(mouseOffset + static_cast<int>(axis));
+        return m_state.position(deviceId, axis);
+#endif
     }
 
     float InputManagerImpl::getMouseAxisDelta(int deviceId, nau::input::MouseKey axis)
     {
-        return m_inputMap.GetFloatDelta(mouseOffset + static_cast<int>(axis));
+#ifndef NAU_PORTABLE_INPUT
+        if (deviceId == 0 && axis >= MouseKey::AxisX && axis <= MouseKey::HWheel)
+            return m_inputMap.GetFloatDelta(mouseOffset + static_cast<int>(axis));
+        return 0;
+#else
+        if (deviceId == 0 && (axis == MouseKey::Wheel || axis == MouseKey::HWheel))
+            return m_inputMap.GetFloatDelta(mouseOffset + static_cast<int>(axis));
+        return m_state.delta(deviceId, axis);
+#endif
     }
+    void InputManagerImpl::gameInputUpdate(std::chrono::milliseconds dt)
+    {
+        std::lock_guard lock(m_gainputMutex);
+        m_automatic = true;
+        m_inputManager.Update(static_cast<uint64_t>(std::max<int64_t>(0, dt.count())));
+        m_state.publish(m_firstFrame);
+        m_firstFrame = false;
+    }
+
+    void InputManagerImpl::handleGainputMessage(const MSG& message)
+    {
+        std::lock_guard lock(m_gainputMutex);
+        m_inputManager.HandleMessage(message);
+    }
+
+    void InputManagerImpl::handleWindowMessage(void* hwnd, unsigned message, uintptr_t wParam, intptr_t lParam)
+    {
+        if (hwnd != m_window.load())
+            return;
+        if (message == WM_KILLFOCUS || message == WM_CAPTURECHANGED ||
+            (message == WM_ACTIVATEAPP && !wParam) || message == WM_DESTROY)
+        {
+            m_state.reset();
+            m_pointerButtons = 0;
+            if (message == WM_KILLFOCUS && GetCapture() == hwnd)
+                ReleaseCapture();
+            return;
+        }
+        if (message == WM_MOUSEMOVE)
+        {
+            const float scale = 96.f / static_cast<float>(GetDpiForWindow(static_cast<HWND>(hwnd)));
+            m_state.pointer(GET_X_LPARAM(lParam) * scale, GET_Y_LPARAM(lParam) * scale);
+        }
+        int button = -1;
+        bool down = false;
+        switch (message)
+        {
+            case WM_LBUTTONDOWN:
+                button = 0;
+                down = true;
+                break;
+            case WM_LBUTTONUP:
+                button = 0;
+                break;
+            case WM_MBUTTONDOWN:
+                button = 1;
+                down = true;
+                break;
+            case WM_MBUTTONUP:
+                button = 1;
+                break;
+            case WM_RBUTTONDOWN:
+                button = 2;
+                down = true;
+                break;
+            case WM_RBUTTONUP:
+                button = 2;
+                break;
+            case WM_XBUTTONDOWN:
+                button = GET_XBUTTON_WPARAM(wParam) == XBUTTON1 ? 3 : 4;
+                down = true;
+                break;
+            case WM_XBUTTONUP:
+                button = GET_XBUTTON_WPARAM(wParam) == XBUTTON1 ? 3 : 4;
+                break;
+        }
+        if (button >= 0)
+        {
+            m_state.button(button, down);
+            if (down)
+            {
+                m_pointerButtons |= 1u << button;
+                SetCapture(static_cast<HWND>(hwnd));
+            }
+            else
+            {
+                m_pointerButtons &= ~(1u << button);
+                if (!m_pointerButtons && GetCapture() == hwnd)
+                    ReleaseCapture();
+            }
+        }
+        if (message == WM_KEYDOWN || message == WM_SYSKEYDOWN || message == WM_KEYUP || message == WM_SYSKEYUP)
+        {
+            int key = -1;
+            if (wParam >= 'A' && wParam <= 'Z')
+                key = static_cast<int>(Key::A) + static_cast<int>(wParam - 'A');
+            else if (wParam >= '0' && wParam <= '9')
+                key = static_cast<int>(Key::N0) + static_cast<int>(wParam - '0');
+            else if (wParam >= VK_NUMPAD0 && wParam <= VK_NUMPAD9)
+                key = static_cast<int>(Key::KpInsert) + static_cast<int>(wParam - VK_NUMPAD0);
+            else if (wParam >= VK_F1 && wParam <= VK_F19)
+                key = static_cast<int>(Key::F1) + static_cast<int>(wParam - VK_F1);
+            else
+            {
+                switch (wParam)
+                {
+                    case VK_INSERT:
+                        key = static_cast<int>(Key::Insert);
+                        break;
+                    case VK_DELETE:
+                        key = static_cast<int>(Key::Delete);
+                        break;
+                    case VK_HOME:
+                        key = static_cast<int>(Key::Home);
+                        break;
+                    case VK_END:
+                        key = static_cast<int>(Key::End);
+                        break;
+                    case VK_PRIOR:
+                        key = static_cast<int>(Key::PageUp);
+                        break;
+                    case VK_NEXT:
+                        key = static_cast<int>(Key::PageDown);
+                        break;
+                    case VK_NUMLOCK:
+                        key = static_cast<int>(Key::NumLock);
+                        break;
+                    case VK_DIVIDE:
+                        key = static_cast<int>(Key::KpDivide);
+                        break;
+                    case VK_MULTIPLY:
+                        key = static_cast<int>(Key::KpMultiply);
+                        break;
+                    case VK_SUBTRACT:
+                        key = static_cast<int>(Key::KpSubtract);
+                        break;
+                    case VK_ADD:
+                        key = static_cast<int>(Key::KpAdd);
+                        break;
+                    case VK_DECIMAL:
+                        key = static_cast<int>(Key::KpDelete);
+                        break;
+                    case VK_OEM_1:
+                        key = static_cast<int>(Key::Semicolon);
+                        break;
+                    case VK_OEM_PLUS:
+                        key = static_cast<int>(Key::Equal);
+                        break;
+                    case VK_OEM_COMMA:
+                        key = static_cast<int>(Key::Comma);
+                        break;
+                    case VK_OEM_MINUS:
+                        key = static_cast<int>(Key::Minus);
+                        break;
+                    case VK_OEM_PERIOD:
+                        key = static_cast<int>(Key::Period);
+                        break;
+                    case VK_OEM_2:
+                        key = static_cast<int>(Key::Slash);
+                        break;
+                    case VK_OEM_3:
+                        key = static_cast<int>(Key::Grave);
+                        break;
+                    case VK_OEM_4:
+                        key = static_cast<int>(Key::BracketLeft);
+                        break;
+                    case VK_OEM_5:
+                        key = static_cast<int>(Key::Backslash);
+                        break;
+                    case VK_OEM_6:
+                        key = static_cast<int>(Key::BracketRight);
+                        break;
+                    case VK_OEM_7:
+                        key = static_cast<int>(Key::Apostrophe);
+                        break;
+                    case VK_OEM_102:
+                        key = static_cast<int>(Key::Less);
+                        break;
+                    case VK_CAPITAL:
+                        key = static_cast<int>(Key::CapsLock);
+                        break;
+                    case VK_SCROLL:
+                        key = static_cast<int>(Key::ScrollLock);
+                        break;
+                    case VK_SNAPSHOT:
+                        key = static_cast<int>(Key::Print);
+                        break;
+                    case VK_PAUSE:
+                        key = static_cast<int>(Key::Break);
+                        break;
+                    case VK_LWIN:
+                        key = static_cast<int>(Key::SuperL);
+                        break;
+                    case VK_RWIN:
+                        key = static_cast<int>(Key::SuperR);
+                        break;
+                    case VK_APPS:
+                        key = static_cast<int>(Key::Menu);
+                        break;
+                    case VK_SHIFT:
+                        key = static_cast<int>(((lParam >> 16) & 255) == 0x36 ? Key::ShiftR : Key::ShiftL);
+                        break;
+                    case VK_CONTROL:
+                        key = static_cast<int>((lParam & (1 << 24)) ? Key::CtrlR : Key::CtrlL);
+                        break;
+                    case VK_MENU:
+                        key = static_cast<int>((lParam & (1 << 24)) ? Key::AltR : Key::AltL);
+                        break;
+                    case VK_ESCAPE:
+                        key = static_cast<int>(Key::Escape);
+                        break;
+                    case VK_SPACE:
+                        key = static_cast<int>(Key::Space);
+                        break;
+                    case VK_RETURN:
+                        key = static_cast<int>((lParam & (1 << 24)) ? Key::KpEnter : Key::Return);
+                        break;
+                    case VK_TAB:
+                        key = static_cast<int>(Key::Tab);
+                        break;
+                    case VK_BACK:
+                        key = static_cast<int>(Key::BackSpace);
+                        break;
+                    case VK_LEFT:
+                        key = static_cast<int>(Key::Left);
+                        break;
+                    case VK_RIGHT:
+                        key = static_cast<int>(Key::Right);
+                        break;
+                    case VK_UP:
+                        key = static_cast<int>(Key::Up);
+                        break;
+                    case VK_DOWN:
+                        key = static_cast<int>(Key::Down);
+                        break;
+                }
+            }
+            m_state.key(key, message == WM_KEYDOWN || message == WM_SYSKEYDOWN);
+        }
+    }
+
 }  // namespace nau::input

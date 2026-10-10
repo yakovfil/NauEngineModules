@@ -224,6 +224,11 @@ namespace nau
         NAU_ASSERT(m_closed || m_thread == std::thread::id{});
     }
 
+    uintptr_t BrowserWindowManager::getBrowserHostId() const
+    {
+        return m_context->state == BrowserWindowState::Ready ? reinterpret_cast<uintptr_t>(m_context.get()) : 0;
+    }
+
     void BrowserWindowManager::bindToCurrentThread()
     {
         m_thread = std::this_thread::get_id();

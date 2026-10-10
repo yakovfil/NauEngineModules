@@ -206,10 +206,13 @@ namespace nau
         return devices;
     }
 
-    void InputSystemImpl::gamePreUpdate(std::chrono::milliseconds dtMs)
+    void InputSystemImpl::gameInputUpdate(std::chrono::milliseconds dtMs)
     {
         const float dt = static_cast<float>(dtMs.count()) / 1000.f;
-        m_inputManager.Update();
+        {
+            std::lock_guard lock(m_gainputMutex);
+            m_inputManager.Update();
+        }
         for (auto& controller : m_controllers)
         {
             controller.second->update(dt);
@@ -258,4 +261,17 @@ namespace nau
         }
     }
 
+#ifdef NAU_PLATFORM_WIN32
+    void InputSystemImpl::handlePlatformMessage(const MSG& message)
+    {
+        std::lock_guard lock(m_gainputMutex);
+        m_inputManager.HandleMessage(message);
+    }
+
+    void InputSystemImpl::setDisplaySize(unsigned width, unsigned height)
+    {
+        std::lock_guard lock(m_gainputMutex);
+        m_inputManager.SetDisplaySize(width, height);
+    }
+#endif
 }  // namespace nau

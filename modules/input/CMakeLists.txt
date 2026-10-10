@@ -12,7 +12,9 @@ nau_collect_files(Sources
     "/platform/.*"
 )
 
-if (${Platform_Windows})
+if(EMSCRIPTEN)
+  set(Sources src/input.cpp src/input_module.cpp src/platform/emscripten/browser_input.cpp)
+elseif (${Platform_Windows})
 
   nau_collect_files(Sources
     DIRECTORIES 
@@ -29,8 +31,14 @@ nau_add_module(${TargetName}
   EXPORT_AS_LIBRARY
 )
 
-target_link_libraries(${TargetName} PRIVATE
-  gainput PlatformAppApi)
+target_link_libraries(${TargetName} PRIVATE PlatformAppApi)
+if(NOT EMSCRIPTEN)
+  if(NAU_PACKAGED_PROJECT_PROFILE)
+    target_link_libraries(${TargetName} PRIVATE gainputstatic)
+  else()
+    target_link_libraries(${TargetName} PRIVATE gainput)
+  endif()
+endif()
 
 target_include_directories(${TargetName} PRIVATE 
   ${ModuleRoot}/src)
@@ -54,6 +62,9 @@ nau_collect_files(ApiHeaders
 target_compile_definitions(${TargetName} PRIVATE
   NAU_COREINPUT_BUILD
 )
+if(NAU_PACKAGED_PROJECT_PROFILE)
+  target_compile_definitions(${TargetName} PRIVATE NAU_PORTABLE_INPUT)
+endif()
 
 install(DIRECTORY ${ModuleRoot}/include
     DESTINATION ${CMAKE_INSTALL_PREFIX}/include/core/modules/input
@@ -64,3 +75,9 @@ install(DIRECTORY ${ModuleRoot}/include
 )
 
 nau_install(${TargetName} core)
+
+option(NAU_PORTABLE_INPUT_TESTS "Build focused CoreInput regressions" OFF)
+if(NAU_PORTABLE_INPUT_TESTS)
+  nau_target_add_compile_options(TARGETS gtest gtest_main gmock)
+  add_subdirectory(tests/test_input)
+endif()

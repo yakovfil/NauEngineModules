@@ -8,6 +8,14 @@
 
 namespace nau::input
 {
+    // Packaged Windows/web queries use device 0, held keys, pointer buttons and
+    // AxisX/AxisY client coordinates/deltas in CSS pixels (96-DPI client units on
+    // Windows). Legacy desktop mouse queries retain gainput's normalized units.
+    // Frames are sampled automatically before application pre-update;
+    // update() does not sample twice in a managed application. Movement is consumed
+    // once per frame and focus loss clears held controls. Browser actions, signals,
+    // gainput access, wheel, gamepads, touch and text input are unsupported.
+
 
   /**
    * @brief Determines all supported keyboard inputs.

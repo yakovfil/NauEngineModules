@@ -65,7 +65,8 @@ def declaration(path):
         if len(set(values)) != len(values):
             raise ValueError(f"Duplicate portable declaration {field}")
     required = RENDERING_MODULES if data["profile"] == RENDERING_PROFILE else MODULES
-    if set(data["modules"]) != required:
+    allowed = required | {"CoreInput"} if data["profile"] == RENDERING_PROFILE else required
+    if not required <= set(data["modules"]) <= allowed:
         raise ValueError(f"Unsupported or missing portable modules: {data['modules']}")
     if not isinstance(data.get("projectModule"), str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", data["projectModule"]):
         raise ValueError("Invalid portable project module")

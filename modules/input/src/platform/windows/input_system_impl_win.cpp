@@ -1,9 +1,9 @@
 // Copyright 2024 N-GINN LLC. All rights reserved.
 // Use of this source code is governed by a BSD-3 Clause license that can be found in the LICENSE file.
 
-#include <iostream>
 #include "input_system_impl_win.h"
 
+#include <iostream>
 #include <memory>
 #include <vector>
 
@@ -51,7 +51,7 @@ namespace nau::input
                 m_currentWindow = msg.hwnd;
             }
         }
-        insys.getGainput().HandleMessage(msg);
+        insys.handlePlatformMessage(msg);
     }
 
     bool InputSystemImplWin::handleMessage(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -61,7 +61,7 @@ namespace nau::input
             UINT width = LOWORD(lParam);
             UINT height = HIWORD(lParam);
             auto& insys = getServiceProvider().get<InputSystemImpl>();
-            insys.getGainput().SetDisplaySize(width, height);
+            insys.setDisplaySize(width, height);
         }
         return false;
     }

@@ -20,11 +20,12 @@ namespace nau
     class BrowserWindowManager final : public ICoreWindowManager,
                                        public IPlatformWindowInitialization,
                                        public IBrowserWindowStatus,
+                                       public IBrowserWindowHost,
                                        public async::Executor,
                                        public IRuntimeComponent,
                                        public IDisposable
     {
-        NAU_CLASS_(nau::BrowserWindowManager, ICoreWindowManager, IPlatformWindowInitialization, IBrowserWindowStatus, async::Executor, IRuntimeComponent, IDisposable)
+        NAU_CLASS_(nau::BrowserWindowManager, ICoreWindowManager, IPlatformWindowInitialization, IBrowserWindowStatus, IBrowserWindowHost, async::Executor, IRuntimeComponent, IDisposable)
 
     public:
         BrowserWindowManager();
@@ -35,6 +36,7 @@ namespace nau
         async::Task<> windowReady() override;
         BrowserWindowState getBrowserState() const override;
         bool isDocumentVisible() const override;
+        uintptr_t getBrowserHostId() const override;
         async::Executor::Ptr getExecutor() override;
         Result<> pumpMessageQueue(bool, std::optional<std::chrono::milliseconds>) override;
         void waitAnyActivity() noexcept override;

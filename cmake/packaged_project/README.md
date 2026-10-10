@@ -4,7 +4,10 @@ The `non-rendering-scene` profile builds the same application entry, project
 components and packaged-scene startup on Windows and web. It preserves real
 scene hierarchy, transforms, camera data and passive static-mesh/material
 references, with checked activation, updates and cleanup. Graphics, physics,
-animation playback, audio and input services are excluded.
+animation playback and audio services are excluded. Input is optional in the
+`basic-rendering-scene` profile: explicitly add `CoreInput` to its module list to
+enable keyboard and pointer queries on Windows and web. The non-rendering profile
+continues to exclude input.
 
 ## Declare the project
 

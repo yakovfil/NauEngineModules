@@ -29,6 +29,12 @@ class DeclarationTests(unittest.TestCase):
                          rendering=dict(materials={"12345678-1234-1234-1234-123456789abc": "materials/blue.json"},
                                         lighting=dict(direction=[0, 1, 0], ambient=[0.1]*3, directional=[0.7]*3)))
         cases = [("non-rendering", base, True), ("rendering", rendering, True)]
+        with_input = copy.deepcopy(rendering)
+        with_input["modules"].append("CoreInput")
+        cases.append(("rendering-input", with_input, True))
+        non_rendering_input = copy.deepcopy(base)
+        non_rendering_input["modules"].append("CoreInput")
+        cases.append(("non-rendering-input", non_rendering_input, False))
         def invalid(name, edit):
             policy = copy.deepcopy(rendering)
             edit(policy)

@@ -10,7 +10,9 @@
 #include <unordered_map>
 #include <vector>
 
-#include "nau/dataBlock/dag_dataBlock.h"
+#ifndef __EMSCRIPTEN__
+    #include "nau/dataBlock/dag_dataBlock.h"
+#endif
 #include "nau/io/fs_path.h"
 #include "nau/math/math.h"
 #include "nau/rtti/type_info.h"
@@ -19,6 +21,9 @@
 #pragma once
 namespace nau
 {
+#ifdef __EMSCRIPTEN__
+    class DataBlock;
+#endif
     /**
      * @brief Provides an interface for platform-dependent access to the input source
      */

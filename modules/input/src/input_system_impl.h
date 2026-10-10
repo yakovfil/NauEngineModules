@@ -6,6 +6,7 @@
 
 #include <map>
 #include <memory>
+#include <mutex>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -22,9 +23,9 @@ namespace nau
 {
     class InputSystemImpl final : public IServiceInitialization,
                                   public IInputSystem,
-                                  public IGamePreUpdate
+                                  public IGameInputUpdate
     {
-        NAU_RTTI_CLASS(InputSystemImpl, IServiceInitialization, IInputSystem, IGamePreUpdate)
+        NAU_RTTI_CLASS(InputSystemImpl, IServiceInitialization, IInputSystem, IGameInputUpdate)
     public:
         InputSystemImpl();
 
@@ -46,7 +47,11 @@ namespace nau
         IInputController* getController(const std::string& controllerDesc) override;
         std::vector<IInputDevice*> getDevices() override;
 
-        void gamePreUpdate(std::chrono::milliseconds dt) override;
+        void gameInputUpdate(std::chrono::milliseconds dt) override;
+#ifdef NAU_PLATFORM_WIN32
+        void handlePlatformMessage(const MSG& message);
+        void setDisplaySize(unsigned width, unsigned height);
+#endif
 
         gainput::InputManager& getGainput()
         {
@@ -61,6 +66,7 @@ namespace nau
             static InputSignalImpl* create(const std::string& type);
         };
         gainput::InputManager m_inputManager;
+        std::mutex m_gainputMutex;
         std::vector<std::shared_ptr<IInputDevice>> m_devices;
         std::unordered_map<std::string, std::shared_ptr<IInputController>> m_controllers;
         std::multimap<std::string, std::shared_ptr<IInputAction>> m_actions;

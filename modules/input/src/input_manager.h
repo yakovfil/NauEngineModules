@@ -5,12 +5,15 @@
 
 #include <gainput/gainput.h>
 
+#include <atomic>
 #include <vector>
 
-#include "nau/input.h"
+#include "input_manager_interface.h"
+#include "nau/app/main_loop/game_system.h"
 #include "nau/rtti/rtti_impl.h"
 #include "nau/rtti/rtti_object.h"
 #include "nau/service/service.h"
+#include "portable_input_state.h"
 
 namespace nau::input
 {
@@ -21,27 +24,12 @@ namespace nau::input
         virtual gainput::InputManager& getGainput() = 0;
     };
 
-    struct NAU_ABSTRACT_TYPE InputManager
-    {
-        NAU_TYPEID(nau::input::InputManager)
-
-        virtual void setScreenResolution(int x, int y) = 0;
-        virtual void update() = 0;
-        virtual void update(float dt) = 0;
-        virtual bool isKeyboardButtonPressed(int deviceId, nau::input::Key key) = 0;
-        virtual bool isKeyboardButtonHold(int deviceId, nau::input::Key key) = 0;
-        virtual bool isMouseButtonPressed(int deviceId, nau::input::MouseKey key) = 0;
-        virtual bool isMouseButtonReleased(int deviceId, nau::input::MouseKey key) = 0;
-        virtual bool isMouseButtonHold(int deviceId, nau::input::MouseKey key) = 0;
-        virtual float getMouseAxisValue(int deviceId, nau::input::MouseKey axis) = 0;
-        virtual float getMouseAxisDelta(int deviceId, nau::input::MouseKey axis) = 0;
-    };
-
     class InputManagerImpl final : public IServiceInitialization,
+                                   public IGameInputUpdate,
                                    public GainputAccess,
                                    public InputManager
     {
-        NAU_RTTI_CLASS(nau::input::InputManagerImpl, IServiceInitialization, GainputAccess, InputManager)
+        NAU_RTTI_CLASS(nau::input::InputManagerImpl, IServiceInitialization, IGameInputUpdate, GainputAccess, InputManager)
 
     public:
         virtual async::Task<> preInitService() override;
@@ -59,7 +47,17 @@ namespace nau::input
         virtual float getMouseAxisValue(int deviceId, nau::input::MouseKey axis) override;
         virtual float getMouseAxisDelta(int deviceId, nau::input::MouseKey axis) override;
 
+        void gameInputUpdate(std::chrono::milliseconds dt) override;
+        void handleWindowMessage(void* hwnd, unsigned message, uintptr_t wParam, intptr_t lParam);
+        void handleGainputMessage(const MSG& message);
+
     private:
+        PortableInputState m_state;
+        std::mutex m_gainputMutex;
+        std::atomic<void*> m_window{nullptr};
+        unsigned m_pointerButtons = 0;  // Accessed only on the Windows message thread.
+        bool m_automatic = false;
+        bool m_firstFrame = true;
         bool inited = false;
         gainput::InputManager m_inputManager = {false};
         gainput::InputMap m_inputMap = {m_inputManager};

@@ -1,7 +1,6 @@
 // Copyright 2024 N-GINN LLC. All rights reserved.
 // Use of this source code is governed by a BSD-3 Clause license that can be found in the LICENSE file.
 
-
 #include "./input_msg_handler.h"
 
 #include "input_manager.h"
@@ -20,7 +19,12 @@ namespace nau::input
 
     void WindowsInputMsgHandler::postDispatchMsg(const MSG& msg)
     {
-        auto& gaInput = getServiceProvider().get<GainputAccess>().getGainput();
-        gaInput.HandleMessage(msg);
+        getServiceProvider().get<InputManagerImpl>().handleGainputMessage(msg);
+    }
+
+    bool WindowsInputMsgHandler::handleMessage(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+    {
+        getServiceProvider().get<InputManagerImpl>().handleWindowMessage(hwnd, message, wParam, lParam);
+        return false;
     }
 }  // namespace nau::input
