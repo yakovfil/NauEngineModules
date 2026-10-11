@@ -4,6 +4,7 @@
 #include "shader_pack.h"
 
 #include <algorithm>
+#include <iostream>
 #include <string>
 #include <string_view>
 #include <vector>

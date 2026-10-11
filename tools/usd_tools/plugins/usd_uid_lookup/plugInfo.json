@@ -2,6 +2,7 @@
   "Plugins": [
     {
       "Name": "usd_uid_lookup",
+      "Info": {},
       "Type": "library",
       "LibraryPath": "../UsdUidLookup.dll",
       "ResourcePath": "resources",
