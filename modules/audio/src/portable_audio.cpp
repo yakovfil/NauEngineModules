@@ -486,7 +486,7 @@ namespace nau::audio
                 const gesture = event => {
                     if (!live || !event.isTrusted || document.hidden || pending || context.state === 'running') return;
                     const key = event.type === 'keydown';
-                    if (key && (document.activeElement !== element || event.repeat || !['KeyW','KeyA','KeyS','KeyD','KeyQ','KeyE'].includes(event.code))) return;
+                    if (key && (document.activeElement !== element || event.repeat || !['KeyW','KeyA','KeyS','KeyD','KeyQ','KeyE','Space'].includes(event.code))) return;
                     if (!key && ((event.type !== 'mousedown' && event.pointerType !== 'mouse') || event.sourceCapabilities?.firesTouchEvents || event.button < 0 || event.button > 2)) return;
                     pending = true;
                     const currentAttempt = ++attempt;

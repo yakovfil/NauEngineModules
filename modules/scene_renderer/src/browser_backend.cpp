@@ -11,9 +11,13 @@ namespace nau::render
         class BrowserBackend final : public SceneBackend
         {
         public:
+            void injectTestFailure(TestFailure value) override
+            {
+                m_testFailure = value;
+            }
             Result<> initialize(void*) override
             {
-                return m_renderer.initializeBatch(shaders::VertexSource, shaders::FragmentSource, shaders::BillboardVertex, shaders::BillboardFragment);
+                return m_renderer.initializeBatch(shaders::VertexSource, shaders::FragmentSource, shaders::BillboardVertex, shaders::BillboardFragment, m_testFailure == TestFailure::VectorShader);
             }
             Result<SceneDrawable> poll() override
             {
@@ -23,7 +27,7 @@ namespace nau::render
             }
             Result<> submit(const SceneFrame& frame) override
             {
-                return m_renderer.drawBatch(frame);
+                return m_renderer.drawBatch(frame, m_testFailure == TestFailure::VectorUpload);
             }
             Result<> stop() override
             {
@@ -32,6 +36,7 @@ namespace nau::render
 
         private:
             BrowserRenderer m_renderer;
+            TestFailure m_testFailure = TestFailure::None;
         };
     }  // namespace
     std::unique_ptr<SceneBackend> createSceneBackend()

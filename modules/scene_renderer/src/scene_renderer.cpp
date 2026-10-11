@@ -11,6 +11,7 @@
 #include "nau/app/core_window_manager.h"
 #include "nau/module/module.h"
 #include "nau/render/scene_backend.h"
+#include "nau/render/vector_lines.h"
 #include "nau/scene/camera/camera_manager.h"
 #include "nau/scene/components/billboard_component.h"
 #include "nau/scene/components/static_mesh_component.h"
@@ -310,6 +311,39 @@ namespace nau::render
                 // activated objects join frames when their accepted loads settle.
                 if (m_initialFrame && (!missing.empty() || m_loading || !missingTextures.empty() || m_textureLoading))
                     return {};
+                for (auto scene : getServiceProvider().get<scene::ISceneManager>().getDefaultWorld().getScenes())
+                {
+                    if (!scene)
+                        continue;
+                    Error::Ptr vectorError;
+                    struct Context
+                    {
+                        SceneFrame& frame;
+                        Error::Ptr& error;
+                    } context{frame, vectorError};
+                    scene->getRoot().walkComponents([](scene::Component& component, void* opaque)
+                    {
+                        auto& context = *static_cast<Context*>(opaque);
+                        if (component.getActivationState() != scene::ActivationState::Active)
+                            return true;
+                        if (auto* source = component.as<ISceneVectorSource*>())
+                        {
+                            auto data = source->vectorPresentation();
+                            if (!data)
+                            {
+                                context.error = data.getError();
+                                return false;
+                            }
+                            context.frame.vectors.push_back(std::move(*data));
+                        }
+                        return true;
+                    }, &context, true);
+                    if (vectorError)
+                        return fail(vectorError);
+                }
+                auto validatedVectors = tessellateVectors(frame);
+                if (!validatedVectors)
+                    return fail(validatedVectors.getError());
                 auto submitted = m_backend->submit(frame);
                 if (!submitted)
                     return fail(submitted.getError());

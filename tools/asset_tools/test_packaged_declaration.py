@@ -36,6 +36,14 @@ class DeclarationTests(unittest.TestCase):
         with_audio["modules"].append("Audio")
         with_audio["audio"] = {"click": "audio/click.wav"}
         cases.append(("rendering-audio", with_audio, True))
+        effects = copy.deepcopy(with_audio)
+        effects["audio"] = {"fire": "audio/fire.wav", "explosion": "audio/explosion.wav"}
+        cases.append(("named-effects", effects, True))
+        for name, mapping in (("empty-audio", {}), ("bad-audio-name", {"bad-name": "audio/fire.wav"}),
+                              ("audio-capacity", {f"sound{i}": "audio/fire.wav" for i in range(17)})):
+            invalid_effects = copy.deepcopy(effects)
+            invalid_effects["audio"] = mapping
+            cases.append((name, invalid_effects, False))
         bad_audio = copy.deepcopy(with_audio)
         bad_audio["audio"]["click"] = "audio/../click.wav"
         cases.append(("audio-traversal", bad_audio, False))

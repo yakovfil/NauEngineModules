@@ -13,6 +13,7 @@
 #include "nau/osApiWrappers/dag_cpuJobs.h"
 #include "nau/platform/windows/windows_headers.h"
 #include "nau/render/scene_backend.h"
+#include "nau/render/vector_lines.h"
 #include "nau/startup/dag_globalSettings.h"
 #include "nau_scene_shaders.h"
 
@@ -56,6 +57,10 @@ namespace nau::render
         class NativeBackend final : public SceneBackend
         {
         public:
+            void injectTestFailure(TestFailure value) override
+            {
+                m_testFailure = value;
+            }
             ~NativeBackend() override
             {
                 [[maybe_unused]] auto cleanup = stop();
@@ -127,6 +132,23 @@ namespace nau::render
                 sampler.filter_min_mode = sampler.filter_mag_mode = d3d::FilterMode::Linear;
                 sampler.address_mode_u = sampler.address_mode_v = d3d::AddressMode::Clamp;
                 m_sampler = d3d::create_sampler(sampler);
+                VSDTYPE vectorLayout[] = {VSD_STREAM_PER_VERTEX_DATA(0), VSD_REG(VSDR_POS, VSDT_FLOAT4), VSD_REG(VSDR_NORM, VSDT_FLOAT3), VSD_END};
+                m_vectorDeclaration = d3d::create_vdecl(vectorLayout);
+                dxil::ShaderResourceUsageTable vectorUsage;
+                const auto vectorVs = m_testFailure == TestFailure::VectorShader ? BAD_VPROG : d3d::create_raw_vertex_shader(std::span{shaders::NativeVectorVertex}, vectorUsage, m_vectorDeclaration);
+                const auto vectorPs = d3d::create_raw_pixel_shader(std::span{shaders::NativeVectorFragment}, vectorUsage);
+                if (vectorVs != BAD_VPROG && vectorPs != BAD_FSHADER && m_vectorDeclaration != BAD_VDECL)
+                    m_vectorProgram = d3d::create_program(vectorVs, vectorPs, m_vectorDeclaration);
+                if (m_vectorProgram == BAD_PROGRAM)
+                {
+                    if (vectorVs != BAD_VPROG)
+                        d3d::delete_vertex_shader(vectorVs);
+                    if (vectorPs != BAD_FSHADER)
+                        d3d::delete_pixel_shader(vectorPs);
+                    return NauMakeError("Native vector shader creation failed");
+                }
+                settings.ztest = settings.zwrite = 0;
+                m_vectorState = d3d::create_render_state(settings);
                 return {};
             }
             Result<SceneDrawable> poll() override
@@ -167,6 +189,9 @@ namespace nau::render
                     return drawable.getError();
                 if (!drawable->width || !drawable->height)
                     return {};
+                auto vectors = tessellateVectors(frame);
+                if (!vectors)
+                    return vectors.getError();
                 std::set<std::string> live;
                 for (const auto& draw : frame.draws)
                     live.insert(draw.geometry);
@@ -189,8 +214,11 @@ namespace nau::render
                 }
                 if (!d3d::set_render_target() || !d3d::set_depth(m_depth, DepthAccess::RW) ||
                     !d3d::setview(0, 0, drawable->width, drawable->height, 0, 1) ||
-                    !d3d::clearview(CLEAR_TARGET | CLEAR_ZBUFFER, math::E3DCOLOR(12, 16, 24, 255), 1, 0) || !d3d::set_program(m_program))
+                    !d3d::clearview(CLEAR_TARGET | CLEAR_ZBUFFER, vectors->blackBackground ? math::E3DCOLOR(0, 0, 0, 255) : math::E3DCOLOR(12, 16, 24, 255), 1, 0) || !d3d::set_program(m_program))
                     return NauMakeError("Native scene frame setup failed");
+                NauCheckResult(drawVectors(vectors->background, false));
+                if (!d3d::set_program(m_program))
+                    return NauMakeError("Native mesh program unavailable");
                 d3d::set_render_state(m_renderState);
                 for (const auto& draw : frame.draws)
                 {
@@ -289,6 +317,9 @@ namespace nau::render
                         else
                             ++it;
                 }
+                NauCheckResult(drawVectors(vectors->depth, true));
+                NauCheckResult(drawVectors(vectors->world, false));
+                NauCheckResult(drawVectors(vectors->overlay, false));
                 if (!d3d::update_screen())
                     return NauMakeError("Native scene presentation failed");
                 return {};
@@ -309,6 +340,12 @@ namespace nau::render
                 for (auto& [identity, texture] : m_textures)
                     texture.texture->destroy();
                 m_textures.clear();
+                if (m_vectorBuffer)
+                    m_vectorBuffer->destroy(), m_vectorBuffer = nullptr;
+                if (m_vectorProgram != BAD_PROGRAM)
+                    d3d::delete_program(m_vectorProgram), m_vectorProgram = BAD_PROGRAM;
+                if (m_vectorDeclaration != BAD_VDECL)
+                    d3d::delete_vdecl(m_vectorDeclaration), m_vectorDeclaration = BAD_VDECL;
                 if (m_billboardProgram != BAD_PROGRAM)
                     d3d::delete_program(m_billboardProgram), m_billboardProgram = BAD_PROGRAM;
                 if (m_billboardDeclaration != BAD_VDECL)
@@ -334,6 +371,26 @@ namespace nau::render
             }
 
         private:
+            Result<> drawVectors(std::vector<VectorVertex> vertices, bool depth)
+            {
+                if (vertices.empty())
+                    return {};
+                for (auto& vertex : vertices)
+                    vertex.position[2] = .5f * (vertex.position[2] + vertex.position[3]);
+                if (!m_vectorBuffer)
+                    m_vectorBuffer = d3d::create_vb((VectorPresentation::WorldLimit + VectorPresentation::OverlayLimit) * 6 * sizeof(VectorVertex), SBCF_DYNAMIC, u8"portable_vector_vertices");
+                if (!m_vectorBuffer || m_testFailure == TestFailure::VectorUpload || !m_vectorBuffer->updateData(0, vertices.size() * sizeof(VectorVertex), vertices.data(), VBLOCK_WRITEONLY | VBLOCK_DISCARD))
+                    return NauMakeError("Native vector buffer upload failed");
+                d3d::set_render_state(depth ? m_renderState : m_vectorState);
+                if (!d3d::set_program(m_vectorProgram) || !d3d::setvdecl(m_vectorDeclaration) || !d3d::setvsrc(0, m_vectorBuffer, sizeof(VectorVertex)) || !d3d::draw(PRIM_TRILIST, 0, vertices.size() / 3))
+                    return NauMakeError("Native vector draw failed");
+                return {};
+            }
+            PROGRAM m_vectorProgram = BAD_PROGRAM;
+            TestFailure m_testFailure = TestFailure::None;
+            VDECL m_vectorDeclaration = BAD_VDECL;
+            Sbuffer* m_vectorBuffer = nullptr;
+            ::shaders::DriverRenderStateId m_vectorState;
             struct Mesh
             {
                 Sbuffer* vertices = nullptr;

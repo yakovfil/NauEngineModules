@@ -13,6 +13,7 @@
 #include <set>
 
 #include "nau/render/scene_backend.h"
+#include "nau/render/vector_lines.h"
 #include "nau/scene/scene_object.h"
 #include "nau/service/service_provider.h"
 #include "nau/text/screen_text.h"
@@ -36,6 +37,7 @@ namespace nau
         };
         std::map<std::string, MeshResource> meshes;
         GLuint billboardProgram = 0, billboardVao = 0;
+        GLuint vectorProgram = 0, vectorVao = 0, vectorBuffer = 0;
         struct BillboardTexture
         {
             nau::Ptr<CpuTextureView> owner;
@@ -70,7 +72,7 @@ namespace nau
         return initializeProgram(&mesh, vertex, fragment);
     }
 
-    Result<> BrowserRenderer::initializeBatch(std::string_view vertex, std::string_view fragment, std::string_view billboardVertex, std::string_view billboardFragment)
+    Result<> BrowserRenderer::initializeBatch(std::string_view vertex, std::string_view fragment, std::string_view billboardVertex, std::string_view billboardFragment, bool failVectorShader)
     {
         NauCheckResult(initializeProgram(nullptr, vertex, fragment));
         if (billboardVertex.empty() && billboardFragment.empty())
@@ -114,6 +116,35 @@ namespace nau
         if (!okay)
             return NauMakeError("Browser billboard shader link failed");
         glGenVertexArrays(1, &state.billboardVao);
+        if (failVectorShader)
+            return NauMakeError("Browser vector shader creation failed (injected)");
+        auto vectorVs = compile(GL_VERTEX_SHADER, "#version 300 es\nlayout(location=0) in vec4 position; layout(location=1) in vec3 color; out vec3 tint; void main(){gl_Position=position;tint=color;}");
+        if (!vectorVs)
+            return vectorVs.getError();
+        auto vectorFs = compile(GL_FRAGMENT_SHADER, "#version 300 es\nprecision highp float; in vec3 tint; out vec4 pixel; void main(){pixel=vec4(tint,1.0);}");
+        if (!vectorFs)
+        {
+            glDeleteShader(*vectorVs);
+            return vectorFs.getError();
+        }
+        state.vectorProgram = glCreateProgram();
+        glAttachShader(state.vectorProgram, *vectorVs);
+        glAttachShader(state.vectorProgram, *vectorFs);
+        glLinkProgram(state.vectorProgram);
+        glDeleteShader(*vectorVs);
+        glDeleteShader(*vectorFs);
+        glGetProgramiv(state.vectorProgram, GL_LINK_STATUS, &okay);
+        if (!okay)
+            return NauMakeError("Browser vector shader link failed");
+        glGenVertexArrays(1, &state.vectorVao);
+        glBindVertexArray(state.vectorVao);
+        glGenBuffers(1, &state.vectorBuffer);
+        glBindBuffer(GL_ARRAY_BUFFER, state.vectorBuffer);
+        glBufferData(GL_ARRAY_BUFFER, (render::VectorPresentation::WorldLimit + render::VectorPresentation::OverlayLimit) * 6 * sizeof(render::VectorVertex), nullptr, GL_DYNAMIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(render::VectorVertex), nullptr);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(render::VectorVertex), reinterpret_cast<void*>(4 * sizeof(float)));
         for (const char* name : {"center", "extent", "marker"})
             if (glGetUniformLocation(state.billboardProgram, name) < 0)
                 return NauMakeError("Browser billboard uniform missing: {}", name);
@@ -303,7 +334,7 @@ void main() { color=vec4(tint.rgb,tint.a*texture(coverage,texcoord).r); }
         return {m_state->width, m_state->height};
     }
 
-    Result<> BrowserRenderer::drawBatch(const render::SceneFrame& frame)
+    Result<> BrowserRenderer::drawBatch(const render::SceneFrame& frame, bool failVectorUpload)
     {
         auto& state = *m_state;
         if (!state.batch || state.stopped || !state.context || !state.program)
@@ -311,6 +342,26 @@ void main() { color=vec4(tint.rgb,tint.a*texture(coverage,texcoord).r); }
         NauCheckResult(poll());
         if (!state.width || !state.height)
             return {};
+        auto vectors = render::tessellateVectors(frame);
+        if (!vectors)
+            return state.failure = vectors.getError();
+        if (failVectorUpload && !frame.vectors.empty())
+            return state.failure = NauMakeError("Browser vector buffer upload failed (injected)");
+        const auto drawVectors = [&](const auto& vertices, bool depth)
+        {
+            if (vertices.empty())
+                return;
+            if (depth)
+                glEnable(GL_DEPTH_TEST);
+            else
+                glDisable(GL_DEPTH_TEST);
+            glDepthMask(GL_FALSE);
+            glUseProgram(state.vectorProgram);
+            glBindVertexArray(state.vectorVao);
+            glBindBuffer(GL_ARRAY_BUFFER, state.vectorBuffer);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, vertices.size() * sizeof(render::VectorVertex), vertices.data());
+            glDrawArrays(GL_TRIANGLES, 0, vertices.size());
+        };
         std::set<std::string> live;
         for (const auto& draw : frame.draws)
             live.insert(draw.geometry);
@@ -331,8 +382,14 @@ void main() { color=vec4(tint.rgb,tint.a*texture(coverage,texcoord).r); }
         glDepthMask(GL_TRUE);
         glDisable(GL_BLEND);
         glDisable(GL_CULL_FACE);
-        glClearColor(12.f / 255, 16.f / 255, 24.f / 255, 1);
+        if (vectors->blackBackground)
+            glClearColor(0, 0, 0, 1);
+        else
+            glClearColor(12.f / 255, 16.f / 255, 24.f / 255, 1);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        drawVectors(vectors->background, false);
+        glEnable(GL_DEPTH_TEST);
+        glDepthMask(GL_TRUE);
         glUseProgram(state.program);
         glUniformMatrix4fv(glGetUniformLocation(state.program, "viewProjection"), 1, GL_FALSE, frame.viewProjection.data());
         glUniform3fv(glGetUniformLocation(state.program, "lightDirection"), 1, frame.lightDirection.data());
@@ -418,6 +475,9 @@ void main() { color=vec4(tint.rgb,tint.a*texture(coverage,texcoord).r); }
             }
             else
                 ++it;
+        drawVectors(vectors->depth, true);
+        drawVectors(vectors->world, false);
+        drawVectors(vectors->overlay, false);
         if (glGetError() != GL_NO_ERROR || emscripten_webgl_commit_frame() != EMSCRIPTEN_RESULT_SUCCESS)
             return state.failure = NauMakeError("Browser scene frame submission failed");
         ++state.frames;
@@ -594,6 +654,10 @@ void main() { color=vec4(tint.rgb,tint.a*texture(coverage,texcoord).r); }
                 if (state.billboardProgram)
                     glDeleteProgram(state.billboardProgram);
                 glDeleteVertexArrays(1, &state.billboardVao);
+                if (state.vectorProgram)
+                    glDeleteProgram(state.vectorProgram);
+                glDeleteBuffers(1, &state.vectorBuffer);
+                glDeleteVertexArrays(1, &state.vectorVao);
                 glDeleteBuffers(3, state.buffers);
                 glDeleteVertexArrays(1, &state.vao);
                 if (state.program)

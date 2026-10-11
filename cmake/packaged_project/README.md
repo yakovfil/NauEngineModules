@@ -12,7 +12,11 @@ continues to exclude input and audio.
 Select `Audio` in a rendering declaration to enable checked non-spatial one-shot
 playback. An optional `"audio": {"click": "audio/click.wav"}` mapping packages
 the named file from the project's content directory and exposes its package
-path to game code. Mappings require the Audio module. The initial WAV subset is
+path to game code. The mapping also accepts 1-16 named effects, for example
+`"audio": {"fire": "audio/fire.wav", "explosion": "audio/explosion.wav"}`.
+Names use letters, digits and underscores, begin with a letter, and have at most
+32 characters. Repeated source paths are packaged once; existing click-only
+declarations remain valid. Mappings require the Audio module. The initial WAV subset is
 RIFF PCM16 mono/stereo at 44.1/48 kHz, at most one second and 256 KiB. Required
 audio is validated before publication and runtime decoding. The portable audio
 API reads mounted archive bytes and uses the bundled miniaudio decoder/mixer and

@@ -269,6 +269,7 @@ namespace nau::input
         if (!window || !window->getWindowHandle())
             return async::Task<>::makeRejected(NauMakeError("CoreInput cannot bind the active Windows window"));
         m_window = window->getWindowHandle();
+        m_state.key(static_cast<int>(Key::Focus), GetForegroundWindow() == window->getWindowHandle());
 #endif
         return async::Task<>::makeResolved();
     }
@@ -393,12 +394,16 @@ namespace nau::input
     {
         if (hwnd != m_window.load())
             return;
+        if (message == WM_SETFOCUS || (message == WM_ACTIVATEAPP && wParam))
+            m_state.key(static_cast<int>(Key::Focus), true);
         if (message == WM_CAPTURECHANGED && m_releasingCapture)
             return;
         if (message == WM_KILLFOCUS || message == WM_CAPTURECHANGED ||
             (message == WM_ACTIVATEAPP && !wParam) || message == WM_DESTROY)
         {
             m_state.reset();
+            if (message == WM_CAPTURECHANGED && GetForegroundWindow() == hwnd)
+                m_state.key(static_cast<int>(Key::Focus), true);
             m_pointerButtons = 0;
             if (message == WM_KILLFOCUS && GetCapture() == hwnd)
                 ReleaseCapture();

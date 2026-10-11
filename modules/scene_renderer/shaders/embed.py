@@ -13,6 +13,8 @@ parser.add_argument("--billboard-vertex", type=pathlib.Path)
 parser.add_argument("--billboard-fragment", type=pathlib.Path)
 parser.add_argument("--native-billboard-vertex", type=pathlib.Path)
 parser.add_argument("--native-billboard-fragment", type=pathlib.Path)
+parser.add_argument("--native-vector-vertex", type=pathlib.Path)
+parser.add_argument("--native-vector-fragment", type=pathlib.Path)
 args = parser.parse_args()
 text = "#pragma once\nnamespace nau::render::shaders {\n"
 for name, path in (("VertexSource", args.vertex), ("FragmentSource", args.fragment), ("BillboardVertex", args.billboard_vertex), ("BillboardFragment", args.billboard_fragment)):
@@ -22,7 +24,7 @@ for name, path in (("VertexSource", args.vertex), ("FragmentSource", args.fragme
     if not source:
         raise ValueError(f"Empty shader source: {path}")
     text += f"inline constexpr char {name}[] = {json.dumps(source)};\n"
-for name, path in (("NativeVertex", args.native_vertex), ("NativeFragment", args.native_fragment), ("NativeBillboardVertex", args.native_billboard_vertex), ("NativeBillboardFragment", args.native_billboard_fragment)):
+for name, path in (("NativeVertex", args.native_vertex), ("NativeFragment", args.native_fragment), ("NativeBillboardVertex", args.native_billboard_vertex), ("NativeBillboardFragment", args.native_billboard_fragment), ("NativeVectorVertex", args.native_vector_vertex), ("NativeVectorFragment", args.native_vector_fragment)):
     if path:
         data = path.read_bytes()
         if not data:

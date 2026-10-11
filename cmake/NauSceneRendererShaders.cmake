@@ -30,6 +30,15 @@ if(WIN32)
     list(APPEND sceneShaderInputs "${binary}")
   endforeach()
   list(APPEND sceneShaderArguments --native-billboard-vertex "${sceneShaderOutput}/billboard-vs.dxil" --native-billboard-fragment "${sceneShaderOutput}/billboard-ps.dxil")
+  foreach(stage IN ITEMS vs ps)
+    set(binary "${sceneShaderOutput}/vector-${stage}.dxil")
+    add_custom_command(OUTPUT "${binary}"
+      COMMAND "${CMAKE_COMMAND}" -E make_directory "${sceneShaderOutput}"
+      COMMAND "${NAU_DXC_EXECUTABLE}" -T "${stage}_6_0" -E "${stage}_main" -Fo "${binary}" "${sceneShaderDirectory}/vector.hlsl"
+      DEPENDS "${sceneShaderDirectory}/vector.hlsl" "${NAU_DXC_EXECUTABLE}" VERBATIM)
+    list(APPEND sceneShaderInputs "${binary}")
+  endforeach()
+  list(APPEND sceneShaderArguments --native-vector-vertex "${sceneShaderOutput}/vector-vs.dxil" --native-vector-fragment "${sceneShaderOutput}/vector-ps.dxil")
   list(APPEND sceneShaderArguments --native-vertex "${sceneShaderOutput}/vs.dxil" --native-fragment "${sceneShaderOutput}/ps.dxil")
 endif()
 add_custom_command(OUTPUT "${sceneShaderHeader}"

@@ -84,6 +84,17 @@ def prepare(args):
             component = prim.GetAttribute("componentTypeName")
             if component and component.Get() not in supported:
                 raise RuntimeError(f"Unsupported component {component.Get()} on {prim.GetPath()} in {path}")
+            if component and component.Get() == "DemoBattlezone":
+                from portable_vector_game import validate_game
+                game_path = prim.GetAttribute("gameContent").Get()
+                if not isinstance(game_path, str) or not game_path.startswith("/content/"):
+                    raise RuntimeError(f"Invalid game content reference in {path}")
+                source = contained(content, content / game_path[len("/content/"):])
+                try:
+                    validate_game(json.loads(source.read_text()))
+                except (ValueError, KeyError, TypeError) as error:
+                    raise RuntimeError(f"Invalid vector game data {source}: {error}") from error
+                passive.add(source)
             if policy and policy["profile"] == RENDERING_PROFILE and component and component.Get() == "nau::scene::BillboardComponent":
                 size = prim.GetAttribute("screenPercentageSize")
                 if size and size.Get() is not None and (not math.isfinite(size.Get()) or size.Get() <= 0):
@@ -337,14 +348,14 @@ def prepare(args):
     files = material_files.copy()
     if policy and "audio" in policy:
         from portable_audio import validate_wav
-        relative = policy["audio"]["click"]
-        source = contained(content, content / relative)
-        try:
-            validate_wav(source.read_bytes())
-        except ValueError as error:
-            raise RuntimeError(f"Invalid required audio {relative}: {error}") from error
-        seen.add(source)
-        files.append(dict(source=str(source), path=relative))
+        for relative in sorted(set(policy["audio"].values())):
+            source = contained(content, content / relative)
+            try:
+                validate_wav(source.read_bytes())
+            except ValueError as error:
+                raise RuntimeError(f"Invalid required audio {relative}: {error}") from error
+            seen.add(source)
+            files.append(dict(source=str(source), path=relative))
         (packaged_config / "audio.json").write_text(json.dumps(policy["audio"]))
     for directory, archive_root in ((packaged_config, "config"), (scratch / "assets_database", "assets_db")):
         for file in sorted(directory.rglob("*")):

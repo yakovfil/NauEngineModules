@@ -57,6 +57,7 @@ namespace nau::input
             };
             const reset = () => {
                 send(0);
+                if (!document.hidden && document.hasFocus() && document.activeElement === element) send(1, keys.Focus, 1);
                 if (pointer !== null && element.hasPointerCapture(pointer)) element.releasePointerCapture(pointer);
                 pointer = null;
             };
@@ -99,6 +100,9 @@ namespace nau::input
                 };
                 listen(element, 'keydown', key);
                 listen(element, 'keyup', key);
+                listen(element, 'focus', () => send(1, keys.Focus, 1));
+                listen(document, 'visibilitychange', () => { if (!document.hidden && document.activeElement === element) send(1, keys.Focus, 1); });
+                if (!document.hidden && document.activeElement === element) send(1, keys.Focus, 1);
                 listen(element, 'pointerdown', event => {
                     if (event.pointerType !== 'mouse' || (pointer !== null && pointer !== event.pointerId)) return;
                     element.focus({preventScroll: true});
@@ -135,6 +139,7 @@ namespace nau::input
                 listen(element, 'pointercancel', reset);
                 listen(element, 'blur', reset);
                 listen(window, 'blur', reset);
+                listen(window, 'focus', () => { if (!document.hidden && document.activeElement === element) send(1, keys.Focus, 1); });
                 listen(document, 'visibilitychange', () => { if (document.hidden) reset(); });
                 observer.observe(document, {subtree: true, childList: true});
                 return 1;

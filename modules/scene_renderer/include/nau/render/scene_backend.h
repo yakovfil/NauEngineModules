@@ -14,6 +14,26 @@
 namespace nau::render
 {
     using MatrixValues = std::array<float, 16>;
+    struct VectorLine
+    {
+        std::array<float, 3> a{}, b{};
+        std::array<float, 3> color{0, 1, 0};
+        float width = 2;
+        bool depthTest = false;
+    };
+    struct VectorPresentation
+    {
+        static constexpr size_t WorldLimit = 16384, OverlayLimit = 8192;
+        std::string owner;
+        std::vector<VectorLine> background, world, overlay;
+        bool blackBackground = false;
+    };
+    struct ISceneVectorSource
+    {
+        NAU_TYPEID(nau::render::ISceneVectorSource)
+        virtual ~ISceneVectorSource() = default;
+        virtual Result<VectorPresentation> vectorPresentation() const = 0;
+    };
     struct SceneDraw
     {
         std::string component;
@@ -63,6 +83,7 @@ namespace nau::render
         std::array<float, 3> directional;
         std::vector<SceneDraw> draws;
         std::vector<BillboardDraw> billboards;
+        std::vector<VectorPresentation> vectors;
     };
     struct ISceneFrameObserver
     {
@@ -80,7 +101,17 @@ namespace nau::render
     class SceneBackend
     {
     public:
+        enum class TestFailure
+        {
+            None,
+            VectorShader,
+            VectorUpload
+        };
         virtual ~SceneBackend() = default;
+        // Acceptance-only injection into checked resource creation/upload paths.
+        virtual void injectTestFailure(TestFailure)
+        {
+        }
         virtual Result<> initialize(void* window) = 0;
         virtual Result<SceneDrawable> poll() = 0;
         virtual Result<> submit(const SceneFrame&) = 0;

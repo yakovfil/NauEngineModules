@@ -25,8 +25,8 @@ namespace nau
         BrowserRenderer(const BrowserRenderer&) = delete;
         BrowserRenderer& operator=(const BrowserRenderer&) = delete;
         Result<> initialize(const CpuMeshView&, std::string_view vertexShader, std::string_view fragmentShader);
-        Result<> initializeBatch(std::string_view vertexShader, std::string_view fragmentShader, std::string_view billboardVertex = {}, std::string_view billboardFragment = {});
-        Result<> drawBatch(const render::SceneFrame&);
+        Result<> initializeBatch(std::string_view vertexShader, std::string_view fragmentShader, std::string_view billboardVertex = {}, std::string_view billboardFragment = {}, bool failVectorShader = false);
+        Result<> drawBatch(const render::SceneFrame&, bool failVectorUpload = false);
         std::pair<unsigned, unsigned> getDrawableSize() const;
         Result<> poll();
         Result<> draw(const scene::SceneObject& mesh, const scene::SceneObject& camera);

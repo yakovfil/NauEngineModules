@@ -78,10 +78,13 @@ def declaration(path):
         raise ValueError("Rendering settings require the basic-rendering-scene profile")
     if "audio" in data:
         audio = data["audio"]
-        if "Audio" not in data["modules"] or not isinstance(audio, dict) or set(audio) != {"click"}:
-            raise ValueError("Audio mapping requires Audio module and exactly one click source")
-        if not isinstance(audio["click"], str) or not re.fullmatch(r"audio/[A-Za-z0-9_-]+\.wav", audio["click"]):
-            raise ValueError("Invalid portable click WAV path")
+        if "Audio" not in data["modules"] or not isinstance(audio, dict) or not 1 <= len(audio) <= 16:
+            raise ValueError("Audio mapping requires Audio module and 1-16 named sources")
+        for name, source in audio.items():
+            if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,31}", name):
+                raise ValueError("Invalid portable audio name")
+            if not isinstance(source, str) or not re.fullmatch(r"audio/[A-Za-z0-9_-]+\.wav", source):
+                raise ValueError("Invalid portable WAV path")
     return data
 
 
@@ -125,7 +128,8 @@ def validate_archive(path, policy):
         from portable_audio import validate_wav
         if json.loads(files["config/audio.json"]) != policy["audio"]:
             raise ValueError("Prepared audio mapping mismatch")
-        validate_wav(files[policy["audio"]["click"]])
+        for source in set(policy["audio"].values()):
+            validate_wav(files[source])
     if policy["profile"] == RENDERING_PROFILE:
         from portable_render_assets import normalize_mesh
         settings = render_configuration(json.loads(files["config/rendering.json"]))
