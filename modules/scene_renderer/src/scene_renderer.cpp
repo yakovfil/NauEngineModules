@@ -178,9 +178,13 @@ namespace nau::render
                     auto identity = toString(reference);
                     if (identity.empty())
                         return fail(NauMakeError("Missing geometry on component {}", toString(mesh->getUid())));
+                    // Geometry validation and loading are shared by every instance
+                    // of the same asset. Keep this set local so edits are checked
+                    // again on the next frame without a persistent validity cache.
+                    if (!live.insert(identity).second)
+                        continue;
                     if (reference.getAssetDiscriptor()->getAssetPath().getAssetInnerPath() != "mesh/0")
                         return fail(NauMakeError("Unsupported geometry subresource {} on component {}", identity, toString(mesh->getUid())));
-                    live.insert(identity);
                     if (!m_meshes.contains(identity))
                         missing.emplace(identity, std::move(reference));
                 }

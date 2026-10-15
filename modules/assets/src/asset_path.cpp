@@ -83,7 +83,7 @@ namespace nau
         }
 
         constexpr auto AssetPathReStr = R"-(^([a-zA-Z0-9_\.\-\+\\\/\(\)]+):([a-zA-Z0-9_\.\-\\\/\(\)]+)(\+\[(.*)\])?)-";
-        const std::regex re(AssetPathReStr, std::regex_constants::ECMAScript | std::regex_constants::icase);
+        static const std::regex re(AssetPathReStr, std::regex_constants::ECMAScript | std::regex_constants::icase);
 
         const std::string_view innerPathSv = strings::toStringView(assetPath);
         std::cmatch match;

@@ -13,6 +13,15 @@
 
 namespace nau::render
 {
+    // Optional application policy, read once when the native backend initializes.
+    // Browser pacing is selected through ApplicationHostOptions instead.
+    struct IScenePresentationPolicy
+    {
+        NAU_TYPEID(nau::render::IScenePresentationPolicy)
+        virtual ~IScenePresentationPolicy() = default;
+        virtual bool vsyncEnabled() const = 0;
+    };
+
     using MatrixValues = std::array<float, 16>;
     struct VectorLine
     {

@@ -14,6 +14,7 @@
 #include "nau/platform/windows/windows_headers.h"
 #include "nau/render/scene_backend.h"
 #include "nau/render/vector_lines.h"
+#include "nau/service/service_provider.h"
 #include "nau/startup/dag_globalSettings.h"
 #include "nau_scene_shaders.h"
 
@@ -91,6 +92,12 @@ namespace nau::render
                                      nullptr, "Nau packaged scene", &callback))
                     return NauMakeError("Native scene graphics initialization failed");
                 m_video = true;
+                if (auto* policy = getServiceProvider().find<IScenePresentationPolicy>())
+                {
+                    if (!d3d::enable_vsync(policy->vsyncEnabled()))
+                        return NauMakeError("Native scene presentation policy could not be applied");
+                    NAU_LOG_INFO("Native scene VSync requested: {}", policy->vsyncEnabled());
+                }
                 VSDTYPE layout[] = {VSD_STREAM_PER_VERTEX_DATA(0), VSD_REG(VSDR_POS, VSDT_FLOAT3), VSD_REG(VSDR_NORM, VSDT_FLOAT3), VSD_END};
                 m_declaration = d3d::create_vdecl(layout);
                 dxil::ShaderResourceUsageTable usage;
