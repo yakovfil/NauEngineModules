@@ -29,6 +29,9 @@ class DeclarationTests(unittest.TestCase):
                          rendering=dict(materials={"12345678-1234-1234-1234-123456789abc": "materials/blue.json"},
                                         lighting=dict(direction=[0, 1, 0], ambient=[0.1]*3, directional=[0.7]*3)))
         cases = [("non-rendering", base, True), ("rendering", rendering, True)]
+        menu = copy.deepcopy(rendering)
+        menu['scenes'] = ['scenes/one.nausd_scene', 'scenes/two.nausd_scene']
+        cases.append(('scene-list', menu, True))
         with_input = copy.deepcopy(rendering)
         with_input["modules"].append("CoreInput")
         cases.append(("rendering-input", with_input, True))
@@ -62,6 +65,9 @@ class DeclarationTests(unittest.TestCase):
             cases.append((name, policy, False))
         invalid("missing-rendering", lambda p: p.pop("rendering"))
         invalid("bad-version", lambda p: p.update(version=2))
+        invalid("scene-list-type", lambda p: p.update(scenes='scenes/one.nausd_scene'))
+        invalid("scene-traversal", lambda p: p.update(scenes=['scenes/../one.nausd_scene']))
+        invalid("scene-duplicate", lambda p: p.update(scenes=['scenes/one.nausd_scene']*2))
         invalid("excluded-module", lambda p: p["modules"].append("Physics"))
         invalid("missing-module", lambda p: p["modules"].remove("SceneRenderer"))
         invalid("duplicate", lambda p: p["supportedComponents"].append(p["supportedComponents"][0]))

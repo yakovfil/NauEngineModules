@@ -45,7 +45,8 @@ def prepare(args):
     if not startup.startswith(prefix):
         raise RuntimeError(f"Unsupported startup scene path: {startup}")
     main = contained(content, content / startup[len(prefix):])
-    scenes = [main] + [contained(content, content / path) for path in args.scene]
+    additional = (policy.get("scenes", []) if policy else []) + args.scene
+    scenes = list(dict.fromkeys([main] + [contained(content, content / path) for path in additional]))
     supported = set(policy["supportedComponents"] if policy else args.supported_component)
     if policy and args.supported_component:
         raise RuntimeError("Do not override supported components when a declaration is selected")

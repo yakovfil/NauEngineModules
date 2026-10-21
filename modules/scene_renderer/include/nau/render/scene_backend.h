@@ -23,6 +23,17 @@ namespace nau::render
     };
 
     using MatrixValues = std::array<float, 16>;
+    struct SceneLighting
+    {
+        std::array<float, 3> direction, ambient, directional;
+    };
+    // Optional owner-thread settings for applications switching between scenes.
+    struct ISceneLightingProvider
+    {
+        NAU_TYPEID(nau::render::ISceneLightingProvider)
+        virtual ~ISceneLightingProvider() = default;
+        virtual SceneLighting sceneLighting() const = 0;
+    };
     struct VectorLine
     {
         std::array<float, 3> a{}, b{};

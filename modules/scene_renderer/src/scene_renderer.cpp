@@ -244,6 +244,13 @@ namespace nau::render
                 frame.lightDirection = m_policy.direction;
                 frame.ambient = m_policy.ambient;
                 frame.directional = m_policy.directional;
+                if (auto* source = getServiceProvider().find<ISceneLightingProvider>())
+                {
+                    const auto lighting = source->sceneLighting();
+                    frame.lightDirection = lighting.direction;
+                    frame.ambient = lighting.ambient;
+                    frame.directional = lighting.directional;
+                }
                 const float f = 1.f / std::tan(fov * .00872664626f);
                 const float aspect = float(drawable->width) / drawable->height;
                 const math::Matrix4 projection{

@@ -72,6 +72,9 @@ def declaration(path):
         raise ValueError("Invalid portable project module")
     if not isinstance(data.get("startupConfiguration"), str) or not re.fullmatch(r"/config/[A-Za-z0-9_-]+\.json", data["startupConfiguration"]):
         raise ValueError("Invalid portable startup configuration")
+    scenes = data.get("scenes", [])
+    if not isinstance(scenes, list) or any(not isinstance(scene, str) or not re.fullmatch(r"scenes/[A-Za-z0-9_-]+\.nausd_scene", scene) for scene in scenes) or len(set(scenes)) != len(scenes):
+        raise ValueError("Invalid portable scenes list")
     if data["profile"] == RENDERING_PROFILE:
         render_configuration(data.get("rendering"))
     elif "rendering" in data:

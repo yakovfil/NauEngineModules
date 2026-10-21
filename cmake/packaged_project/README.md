@@ -32,6 +32,14 @@ presses, ignoring auto-repeat. No-audio selections retain their existing graph.
 
 ## Declare the project
 
+An optional `scenes` array includes additional scenes in the same archive, for
+example `"scenes": ["scenes/shooter.nausd_scene", "scenes/benchmark.nausd_scene"]`.
+Paths are relative to `content/`, must be unique, and use the form
+`scenes/<name>.nausd_scene`. Preparation cooks these scenes and their dependency
+closures together with the startup scene. The declaration's supported components
+and material mappings must cover every included scene. Loading and switching
+scenes at runtime remains the application's responsibility.
+
 ### Basic scene rendering
 
 The rendering profile also supports `nau::scene::BillboardComponent` when it is
