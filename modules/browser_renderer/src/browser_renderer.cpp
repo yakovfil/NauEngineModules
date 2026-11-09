@@ -463,7 +463,7 @@ void main() { color=vec4(tint.rgb,tint.a*texture(coverage,texcoord).r); }
             glBindTexture(GL_TEXTURE_2D, found->second.texture);
             glUniform1i(glGetUniformLocation(state.billboardProgram, "marker"), 0);
             glUniform4fv(glGetUniformLocation(state.billboardProgram, "center"), 1, center->data());
-            glUniform2f(glGetUniformLocation(state.billboardProgram, "extent"), draw.size, draw.size * float(state.width) / state.height);
+            glUniform2f(glGetUniformLocation(state.billboardProgram, "extent"), draw.size, draw.size * float(state.width) / state.height / draw.aspectRatio);
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
         }
         glBindTexture(GL_TEXTURE_2D, 0);

@@ -103,6 +103,22 @@ int main()
     draw.position[0] = std::numeric_limits<float>::infinity();
     if (!check(!render::billboardCenter(vp, draw), "invalid position"))
         return 1;
+    draw.screenSpace = true;
+    draw.position = {-.75f, .85f, -1.f};
+    draw.aspectRatio = 4.f;
+    center = render::billboardCenter(vp, draw);
+    if (!check(center && *center == std::array<float, 4>{-.75f, .85f, -1.f, 1.f} && render::billboardInDepth(*center), "screen image bypasses camera projection"))
+        return 1;
+    for (float aspect : {0.f, -1.f, std::numeric_limits<float>::infinity(), std::numeric_limits<float>::quiet_NaN()})
+    {
+        draw.aspectRatio = aspect;
+        if (!check(!render::billboardCenter(vp, draw), "invalid image aspect ratio"))
+            return 1;
+    }
+    draw.aspectRatio = 4.f;
+    draw.position[1] = std::numeric_limits<float>::quiet_NaN();
+    if (!check(!render::billboardCenter(vp, draw), "invalid screen image position"))
+        return 1;
     std::printf("PASS %u portable billboard contract checks\n", checks);
     return 0;
 }

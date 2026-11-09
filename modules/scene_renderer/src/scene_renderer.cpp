@@ -309,6 +309,9 @@ namespace nau::render
                     draw.size = billboard->getScreenPercentageSize();
                     const auto position = billboard->getWorldTransform().getTranslation();
                     draw.position = {float(position.getX()), float(position.getY()), float(position.getZ())};
+                    if (auto* layout = getServiceProvider().find<ISceneBillboardLayout>())
+                        if (!layout->layoutBillboard(draw, frame.drawable))
+                            continue;
                     auto center = billboardCenter(frame.viewProjection, draw);
                     if (!center)
                         return fail(center.getError());

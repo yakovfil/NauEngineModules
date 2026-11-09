@@ -70,12 +70,31 @@ namespace nau::render
         nau::Ptr<CpuTextureView> image;
         std::array<float, 3> position;
         float size = 0.1f;
+        float aspectRatio = 1.f;
+        // Screen images use normalized device coordinates instead of world position.
+        bool screenSpace = false;
+    };
+    struct ISceneBillboardLayout
+    {
+        NAU_TYPEID(nau::render::ISceneBillboardLayout)
+        virtual ~ISceneBillboardLayout() = default;
+        // Owner-thread hook; return false to hide this billboard for the frame.
+        virtual bool layoutBillboard(BillboardDraw&, std::array<unsigned, 2> drawable) const = 0;
     };
     // Clip coordinates remain OpenGL-depth; native conversion happens at submission.
     inline Result<std::array<float, 4>> billboardCenter(const MatrixValues& vp, const BillboardDraw& draw)
     {
         if (!std::isfinite(draw.size) || draw.size <= 0)
             return NauMakeError("Invalid billboard size {}", draw.component);
+        if (!std::isfinite(draw.aspectRatio) || draw.aspectRatio <= 0)
+            return NauMakeError("Invalid billboard aspect ratio {}", draw.component);
+        if (draw.screenSpace)
+        {
+            for (float value : draw.position)
+                if (!std::isfinite(value))
+                    return NauMakeError("Invalid screen image position {}", draw.component);
+            return std::array<float, 4>{draw.position[0], draw.position[1], draw.position[2], 1.f};
+        }
         std::array<float, 4> clip{};
         for (unsigned row = 0; row < 4; ++row)
         {

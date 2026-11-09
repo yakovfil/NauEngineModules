@@ -303,7 +303,7 @@ namespace nau::render
                     for (unsigned i = 0; i < 4; ++i)
                     {
                         const float u = float(i & 1), v = float((i & 2) >> 1);
-                        vertices[i] = {clip[0] + (u * 2 - 1) * draw.size * clip[3], clip[1] + (1 - v * 2) * draw.size * float(drawable->width) / drawable->height * clip[3], .5f * (clip[2] + clip[3]), clip[3], u, v};
+                        vertices[i] = {clip[0] + (u * 2 - 1) * draw.size * clip[3], clip[1] + (1 - v * 2) * draw.size * float(drawable->width) / drawable->height / draw.aspectRatio * clip[3], .5f * (clip[2] + clip[3]), clip[3], u, v};
                     }
                     d3d::set_sampler(STAGE_PS, 0, m_sampler);
                     if (!d3d::set_program(m_billboardProgram) || !d3d::settex(0, found->second.texture) || !d3d::setvdecl(m_billboardDeclaration) || !d3d::draw_up(PRIM_TRISTRIP, 2, vertices, sizeof(Vertex)))
